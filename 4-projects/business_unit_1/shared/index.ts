@@ -6,7 +6,7 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { ProjectFactory } from "../../../modules/project-factory";
+import { ProjectFactory } from "@vitruviansoftware/pulumi-library";
 
 export = async () => {
     const config = new pulumi.Config();

@@ -6,7 +6,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import { BootstrapConfig } from "./config";
-import { GoogleGroup } from "../modules/google-group";
+import { GoogleGroup } from "@vitruviansoftware/pulumi-library";
 
 export interface GroupOutputs {
     requiredGroupIds: Record<string, pulumi.Output<string> | string>;

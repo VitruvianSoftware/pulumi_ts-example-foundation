@@ -8,8 +8,8 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { Network, FirewallRules, SubnetConfig } from "../../modules/network";
-import { PrivateServiceConnect } from "../../modules/private-service-connect";
+import { Network, FirewallRules, SubnetConfig } from "@vitruviansoftware/pulumi-library";
+import { PrivateServiceConnect } from "@vitruviansoftware/pulumi-library";
 
 export interface SharedVpcArgs {
     projectId: pulumi.Input<string>;

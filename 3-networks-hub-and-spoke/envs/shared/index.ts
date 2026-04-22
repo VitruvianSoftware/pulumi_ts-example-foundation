@@ -6,7 +6,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import { SharedVpc } from "../../modules/shared_vpc";
-import { HierarchicalFirewallPolicy } from "../../../modules/hierarchical-firewall-policy";
+import { HierarchicalFirewallPolicy } from "@vitruviansoftware/pulumi-library";
 
 export = async () => {
     const config = new pulumi.Config();

@@ -9,11 +9,7 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "declaration": true,
-        "paths": {
-            "@modules/*": ["./modules/*"]
-        },
-        "baseUrl": "."
+        "declaration": true
     },
     "exclude": ["node_modules", "bin"]
 }

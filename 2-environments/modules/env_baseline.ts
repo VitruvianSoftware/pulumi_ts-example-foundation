@@ -8,7 +8,7 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { ProjectFactory } from "../../modules/project-factory";
+import { ProjectFactory } from "@vitruviansoftware/pulumi-library";
 
 export interface EnvBaselineArgs {
     env: string;

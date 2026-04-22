@@ -7,7 +7,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import { BootstrapConfig } from "./config";
-import { ParentIamMember, ParentIamRemoveRole } from "../modules/parent-iam";
+import { ParentIamMember, ParentIamRemoveRole } from "@vitruviansoftware/pulumi-library";
 
 export interface GranularSAs {
     saEmails: Record<string, pulumi.Output<string>>;
