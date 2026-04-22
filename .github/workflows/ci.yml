@@ -76,7 +76,14 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Install dependencies
+      # Install root-level dependencies first so that the shared
+      # modules/ directory can resolve @pulumi/pulumi, @pulumi/gcp, etc.
+      # Stages reference ../modules/ via relative imports, and TypeScript
+      # resolves module dependencies from the file's own directory tree.
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install stage dependencies
         working-directory: ${{ matrix.stage }}
         run: npm install
 
