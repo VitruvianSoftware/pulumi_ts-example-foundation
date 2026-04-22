@@ -74,7 +74,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "22"
 
       # Install root-level dependencies first so that the shared
       # modules/ directory can resolve @pulumi/pulumi, @pulumi/gcp, etc.
@@ -91,6 +91,24 @@ jobs:
         working-directory: ${{ matrix.stage }}
         run: npx tsc --noEmit
 
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout foundation
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npx vitest run
 
   commitlint:
     name: Commit Lint
