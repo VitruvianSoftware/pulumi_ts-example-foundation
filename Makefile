@@ -24,6 +24,14 @@ lint:
 # Build (install + compile)
 build: install lint
 
+# Run unit tests
+test:
+	npx vitest run
+
+# Run unit tests with coverage
+test-coverage:
+	npx vitest run --coverage
+
 # Install root and stage dependencies
 install:
 	npm install
