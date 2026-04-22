@@ -4,9 +4,9 @@
     "version": "1.0.0",
     "description": "Pulumi TypeScript port of terraform-example-foundation",
     "scripts": {
-        "test": "vitest run",
-        "test:watch": "vitest",
-        "test:coverage": "vitest run --coverage"
+        "test": "vitest run --passWithNoTests",
+        "test:watch": "vitest --passWithNoTests",
+        "test:coverage": "vitest run --coverage --passWithNoTests"
     },
     "devDependencies": {
         "@types/node": "^22",

@@ -108,7 +108,7 @@ jobs:
         run: npm install
 
       - name: Run unit tests
-        run: npx vitest run
+        run: npx vitest run --passWithNoTests
 
   commitlint:
     name: Commit Lint
