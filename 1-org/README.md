@@ -59,3 +59,10 @@ See [ONBOARDING.md](../ONBOARDING.md#deploying-step-1-organization) for step-by-
 | `interconnect_project_id` | Interconnect project ID |
 | `scc_notification_name` | SCC notification configuration name |
 | `tags` | Organization-level tags |
+
+## File Structure
+
+| File | Description |
+|------|-------------|
+| `index.ts` | Orchestrates the org stage: folders, projects, policies, logging, SCC, tags, CAI monitoring |
+| `config.ts` | Configuration loading for organization-level settings |

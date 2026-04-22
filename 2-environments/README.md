@@ -35,3 +35,12 @@ See [ONBOARDING.md](../ONBOARDING.md#deploying-step-2-environments) for step-by-
 | `env_kms_project_id` | Environment KMS project ID |
 | `env_secrets_project_id` | Environment Secrets project ID |
 | `env_folder_id` | Environment folder ID |
+
+## File Structure
+
+| File | Description |
+|------|-------------|
+| `envs/development/index.ts` | Development environment deployment |
+| `envs/nonproduction/index.ts` | Non-production environment deployment |
+| `envs/production/index.ts` | Production environment deployment |
+| `modules/env_baseline.ts` | Per-environment KMS + Secrets project creation with labels |

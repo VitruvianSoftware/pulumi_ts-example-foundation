@@ -35,3 +35,11 @@ See [ONBOARDING.md](../ONBOARDING.md#deploying-step-5-app-infrastructure) for in
 | `instance_name` | Name of the created Compute Engine instance |
 | `instance_zone` | Zone where the instance is deployed |
 | `service_account_email` | Service account email for the instance |
+
+## File Structure
+
+| File | Description |
+|------|-------------|
+| `business_unit_1/development/index.ts` | Development app infrastructure for BU1 |
+| `business_unit_1/nonproduction/index.ts` | Non-production app infrastructure for BU1 |
+| `business_unit_1/production/index.ts` | Production app infrastructure for BU1 |

@@ -71,3 +71,13 @@ See [troubleshooting](../docs/TROUBLESHOOTING.md) if you run into issues during 
 | `projects_step_terraform_service_account_email` | Projects Step Service Account |
 | `wif_provider_name` | Workload Identity Federation provider name |
 | `common_config` | Common configuration data for other steps |
+
+## File Structure
+
+| File | Description |
+|------|-------------|
+| `index.ts` | Orchestrates bootstrap: config loading, folder creation, project/IAM coordination, WIF setup, output exports |
+| `config.ts` | Configuration loading and validation from Pulumi stack config |
+| `sa.ts` | 5 per-stage service accounts with least-privilege IAM at org/parent/seed/cicd/billing scopes |
+| `groups.ts` | Required and optional Cloud Identity group creation |
+| `build_cb.ts` | GitHub Actions WIF OIDC provider and per-SA repository bindings |

@@ -35,3 +35,13 @@ Same as [3-networks-svpc](../3-networks-svpc/README.md#outputs), with additional
 |------|-------------|
 | `hub_network_name` | Hub VPC network name |
 | `hub_network_self_link` | Hub VPC network self-link |
+
+## File Structure
+
+| File | Description |
+|------|-------------|
+| `envs/development/index.ts` | Development hub-and-spoke network deployment |
+| `envs/nonproduction/index.ts` | Non-production hub-and-spoke network deployment |
+| `envs/production/index.ts` | Production hub-and-spoke network deployment |
+| `envs/shared/index.ts` | Shared resources (DNS Hub, hierarchical FW) |
+| `modules/shared_vpc.ts` | Hub-and-spoke VPC module with peering and route exchange |

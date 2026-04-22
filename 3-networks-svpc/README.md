@@ -52,3 +52,13 @@ See [ONBOARDING.md](../ONBOARDING.md#deploying-step-3-networks) for instructions
 | `network_self_link` | VPC network self-link |
 | `subnets` | Subnet details (name, region, CIDR) |
 | `dns_hub_project_id` | DNS hub project ID |
+
+## File Structure
+
+| File | Description |
+|------|-------------|
+| `envs/development/index.ts` | Development SVPC network deployment |
+| `envs/nonproduction/index.ts` | Non-production SVPC network deployment |
+| `envs/production/index.ts` | Production SVPC network deployment |
+| `envs/shared/index.ts` | Shared resources (DNS Hub, hierarchical FW) |
+| `modules/shared_vpc.ts` | Shared VPC module: VPC, subnets, firewall, DNS, NAT, PSA |

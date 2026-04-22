@@ -44,3 +44,13 @@ See [ONBOARDING.md](../ONBOARDING.md#deploying-step-4-projects) for instructions
 | `floating_project_id` | Floating project ID |
 | `peering_project_id` | Peering project ID |
 | `infra_pipeline_project_id` | Infrastructure pipeline project ID |
+
+## File Structure
+
+| File | Description |
+|------|-------------|
+| `business_unit_1/development/index.ts` | Development projects for business unit 1 |
+| `business_unit_1/nonproduction/index.ts` | Non-production projects for business unit 1 |
+| `business_unit_1/production/index.ts` | Production projects for business unit 1 |
+| `business_unit_1/shared/index.ts` | Shared projects for business unit 1 (infra pipeline) |
+| `modules/single_project.ts` | Single project factory with APIs, billing, VPC attachment |
