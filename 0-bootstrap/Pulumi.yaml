@@ -1,0 +1,14 @@
+name: 0-bootstrap
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+description: |
+  Bootstrap GCP Organization — creates the seed project for Terraform/Pulumi state,
+  the CI/CD project for Cloud Build pipelines, granular service accounts, and
+  establishes the bootstrap folder hierarchy. Mirrors Stage 0 of the
+  terraform-example-foundation.
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: foundation-bootstrap
