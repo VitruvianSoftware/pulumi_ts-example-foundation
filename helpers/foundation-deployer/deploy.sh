@@ -55,6 +55,17 @@ TARGET_STACK=""
 DESTROY=false
 DRY_RUN=false
 
+# Load .env file if present
+if [ -f ".env" ]; then
+    set -a
+    source ".env"
+    set +a
+elif [ -f "../.env" ]; then
+    set -a
+    source "../.env"
+    set +a
+fi
+
 # Ordered list of stages (forward deployment order)
 STAGES=(
     "0-bootstrap"
@@ -245,6 +256,18 @@ for stage in "${ordered[@]}"; do
     for target in "${ordered_targets[@]}"; do
         deploy_stack "$target"
     done
+
+    # Automatically set GOOGLE_BILLING_PROJECT for subsequent stages when running locally
+    if [[ "$stage" == "0-bootstrap" && "$ACTION" == "up" && "$DESTROY" == false ]]; then
+        pushd "0-bootstrap" > /dev/null
+        SEED_PROJECT=$(pulumi stack output seed_project_id -s production 2>/dev/null || true)
+        popd > /dev/null
+        if [ -n "$SEED_PROJECT" ]; then
+            export GOOGLE_BILLING_PROJECT="$SEED_PROJECT"
+            export GOOGLE_PROJECT="$SEED_PROJECT"
+            log_info "Auto-configured GOOGLE_PROJECT=$GOOGLE_PROJECT for downstream stages."
+        fi
+    fi
 
     log_info "Stage $stage complete"
 done
