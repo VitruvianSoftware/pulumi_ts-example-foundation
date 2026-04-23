@@ -47,9 +47,15 @@ export = async () => {
     /*************************************************
       Seed Bootstrap Project (mirrors main.tf module "seed_bootstrap")
     *************************************************/
+    const seedSuffix = new random.RandomString("seed-suffix", {
+        length: 4,
+        special: false,
+        upper: false,
+    });
+
     const seedProject = new gcp.organizations.Project("seed-project", {
-        projectId: `${cfg.projectPrefix}-b-seed`,
-        name: `${cfg.projectPrefix}-b-seed`,
+        projectId: pulumi.interpolate`${cfg.projectPrefix}-b-seed-${seedSuffix.result}`,
+        name: pulumi.interpolate`${cfg.projectPrefix}-b-seed-${seedSuffix.result}`,
         folderId: bootstrapFolder.name,
         billingAccount: cfg.billingAccount,
         deletionPolicy: cfg.projectDeletionPolicy,
@@ -100,11 +106,10 @@ export = async () => {
         }, { parent: seedProject }));
     }
 
-    // KMS key for state bucket encryption
     const kmsKeyring = new gcp.kms.KeyRing("seed-keyring", {
         name: `${cfg.projectPrefix}-keyring`,
         project: seedProject.projectId,
-        location: cfg.defaultRegion,
+        location: cfg.defaultRegionKms,
     }, { dependsOn: seedServices });
 
     const kmsKey = new gcp.kms.CryptoKey("seed-key", {
@@ -117,7 +122,7 @@ export = async () => {
         },
     }, { protect: !cfg.bucketTfStateKmsForceDestroy });
 
-    const stateBucketKmsKey = pulumi.interpolate`projects/${seedProject.projectId}/locations/${cfg.defaultRegion}/keyRings/${cfg.projectPrefix}-keyring/cryptoKeys/${cfg.projectPrefix}-key`;
+    const stateBucketKmsKey = pulumi.interpolate`projects/${seedProject.projectId}/locations/${cfg.defaultRegionKms}/keyRings/${cfg.projectPrefix}-keyring/cryptoKeys/${cfg.projectPrefix}-key`;
 
     // State bucket for Terraform/Pulumi state
     const stateBucket = new gcp.storage.Bucket("seed-state-bucket", {
@@ -146,7 +151,7 @@ export = async () => {
     const projectsStateBucket = new gcp.storage.Bucket("projects-state-bucket", {
         name: pulumi.interpolate`${cfg.bucketPrefix}-${seedProject.projectId}-gcp-projects-tfstate`,
         project: seedProject.projectId,
-        location: cfg.defaultRegion,
+        location: cfg.defaultRegionGcs,
         forceDestroy: cfg.bucketForceDestroy,
         uniformBucketLevelAccess: true,
         versioning: { enabled: true },
