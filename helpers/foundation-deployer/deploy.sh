@@ -98,35 +98,34 @@ log_info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
-# Find all Pulumi project directories within a stage
+# Find all Pulumi config files to determine directories and stacks
 find_stacks() {
     local stage="$1"
-    local dirs=()
+    local stacks=()
 
-    # Check for env-per-directory pattern
-    if [ -d "$stage/envs" ]; then
-        for env_dir in "$stage"/envs/*/; do
-            [ -f "${env_dir}Pulumi.yaml" ] && dirs+=("$env_dir")
-        done
-    elif [ -d "$stage/business_unit_1" ]; then
-        for bu_dir in "$stage"/business_unit_1/*/; do
-            [ -f "${bu_dir}Pulumi.yaml" ] && dirs+=("$bu_dir")
-        done
-    elif [ -f "$stage/Pulumi.yaml" ]; then
-        dirs+=("$stage")
-    fi
+    while read -r config_file; do
+        if [[ -z "$config_file" ]]; then continue; fi
+        
+        local dir=$(dirname "$config_file")
+        local file=$(basename "$config_file")
+        
+        # Extract stack name from Pulumi.<stack_name>.yaml
+        local stack_name="${file#Pulumi.}"
+        stack_name="${stack_name%.yaml}"
+        
+        if [[ "$stack_name" != "" && "$stack_name" != "Pulumi" ]]; then
+            stacks+=("$dir:$stack_name")
+        fi
+    done < <(find "$stage" -type f -name "Pulumi.*.yaml" | grep -v "\.example$" | sort)
 
-    echo "${dirs[@]}"
+    echo "${stacks[@]}"
 }
 
 # Deploy a single Pulumi project directory
 deploy_stack() {
-    local dir="$1"
-    local stack_name
-
-    # Extract stack name from Pulumi.yaml or directory name
-    stack_name=$(basename "$dir")
-    [ "$stack_name" = "." ] && stack_name=$(basename "$(dirname "$dir")")
+    local target="$1"
+    local dir="${target%:*}"
+    local stack_name="${target#*:}"
 
     if [ -n "$TARGET_STACK" ] && [ "$stack_name" != "$TARGET_STACK" ]; then
         log_warn "Skipping $dir (stack $stack_name != $TARGET_STACK)"
@@ -208,8 +207,43 @@ for stage in "${ordered[@]}"; do
         continue
     fi
 
-    for dir in $stack_dirs; do
-        deploy_stack "$dir"
+    ordered_targets=()
+    # 1. First prioritize 'shared' stacks
+    for target in $stack_dirs; do
+        if [[ "$target" == *:shared ]]; then
+            ordered_targets+=("$target")
+        fi
+    done
+    # 2. Then add 'development'
+    for target in $stack_dirs; do
+        if [[ "$target" == *:development ]]; then
+            ordered_targets+=("$target")
+        fi
+    done
+    # 3. Then 'nonproduction'
+    for target in $stack_dirs; do
+        if [[ "$target" == *:nonproduction ]]; then
+            ordered_targets+=("$target")
+        fi
+    done
+    # 4. Finally 'production' (and anything else like bootstrap/org)
+    for target in $stack_dirs; do
+        if [[ "$target" != *:shared && "$target" != *:development && "$target" != *:nonproduction ]]; then
+            ordered_targets+=("$target")
+        fi
+    done
+
+    # If destroying, reverse the order
+    if [ "$DESTROY" = true ]; then
+        reversed=()
+        for ((i=${#ordered_targets[@]}-1; i>=0; i--)); do
+            reversed+=("${ordered_targets[$i]}")
+        done
+        ordered_targets=("${reversed[@]}")
+    fi
+
+    for target in "${ordered_targets[@]}"; do
+        deploy_stack "$target"
     done
 
     log_info "Stage $stage complete"

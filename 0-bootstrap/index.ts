@@ -50,7 +50,6 @@ export = async () => {
     const seedProject = new gcp.organizations.Project("seed-project", {
         projectId: `${cfg.projectPrefix}-b-seed`,
         name: `${cfg.projectPrefix}-b-seed`,
-        orgId: cfg.parentType === "organization" ? cfg.orgId : undefined,
         folderId: bootstrapFolder.name,
         billingAccount: cfg.billingAccount,
         deletionPolicy: cfg.projectDeletionPolicy,
