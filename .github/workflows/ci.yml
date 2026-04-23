@@ -76,19 +76,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          registry-url: "https://npm.pkg.github.com"
+          registry-url: "https://registry.npmjs.org"
           scope: "@vitruviansoftware"
 
       - name: Install root dependencies
         run: npm install
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install stage dependencies
         working-directory: ${{ matrix.stage }}
         run: npm install
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: TypeScript compile check
         working-directory: ${{ matrix.stage }}
@@ -106,13 +102,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          registry-url: "https://npm.pkg.github.com"
+          registry-url: "https://registry.npmjs.org"
           scope: "@vitruviansoftware"
 
       - name: Install dependencies
         run: npm install
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run unit tests
         run: npx vitest run
@@ -130,15 +124,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          registry-url: "https://npm.pkg.github.com"
+          registry-url: "https://registry.npmjs.org"
           scope: "@vitruviansoftware"
 
       - name: Install commitlint
         run: |
           npm install -D @commitlint/cli @commitlint/config-conventional
           echo "module.exports = { extends: ['@commitlint/config-conventional'], rules: {'subject-case': [0], 'header-max-length': [0]} };" > commitlint.config.js
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate PR title
         env:
