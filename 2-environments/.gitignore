@@ -1,12 +1,14 @@
+# Node.js
 node_modules/
 package-lock.json
 dist/
+
+# TypeScript compiled output
 *.js
 *.js.map
 *.d.ts
-!jest.config.js
 
-# Pulumi
+# Pulumi stack configs (contain secrets / environment-specific values)
 Pulumi.*.yaml
 !Pulumi.yaml
 !Pulumi.*.yaml.example
@@ -24,3 +26,7 @@ Thumbs.db
 # Temporary
 tmp_plan/
 *.log
+
+# Credentials
+credentials.json
+.envrc
