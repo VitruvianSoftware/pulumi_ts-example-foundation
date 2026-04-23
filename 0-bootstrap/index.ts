@@ -124,6 +124,16 @@ export = async () => {
 
     const stateBucketKmsKey = pulumi.interpolate`projects/${seedProject.projectId}/locations/${cfg.defaultRegionKms}/keyRings/${cfg.projectPrefix}-keyring/cryptoKeys/${cfg.projectPrefix}-key`;
 
+    const storageSa = gcp.storage.getProjectServiceAccountOutput({
+        project: seedProject.projectId,
+    });
+
+    const kmsBinding = new gcp.kms.CryptoKeyIAMMember("seed-kms-sa", {
+        cryptoKeyId: kmsKey.id,
+        role: "roles/cloudkms.cryptoKeyEncrypterDecrypter",
+        member: pulumi.interpolate`serviceAccount:${storageSa.emailAddress}`,
+    });
+
     // State bucket for Terraform/Pulumi state
     const stateBucket = new gcp.storage.Bucket("seed-state-bucket", {
         name: `${cfg.bucketPrefix}-${cfg.projectPrefix}-b-seed-tfstate`,
@@ -133,7 +143,7 @@ export = async () => {
         uniformBucketLevelAccess: true,
         versioning: { enabled: true },
         encryption: { defaultKmsKeyName: kmsKey.id },
-    }, { dependsOn: seedServices });
+    }, { dependsOn: [kmsBinding, ...seedServices] });
 
     /*************************************************
       CI/CD Project and Cloud Build (mirrors build_cb.tf)
@@ -156,7 +166,7 @@ export = async () => {
         uniformBucketLevelAccess: true,
         versioning: { enabled: true },
         encryption: { defaultKmsKeyName: kmsKey.id },
-    }, { dependsOn: [stateBucket] });
+    }, { dependsOn: [stateBucket, kmsBinding] });
 
     /*************************************************
       Org admins IAM at org level
