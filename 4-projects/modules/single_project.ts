@@ -8,7 +8,7 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { ProjectFactory } from "@vitruviansoftware/pulumi-library";
+import { ProjectFactory } from "@vitruviansoftware/pulumi-project-factory";
 
 export interface SingleProjectArgs {
     orgId: string;
