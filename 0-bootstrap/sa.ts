@@ -131,6 +131,7 @@ export async function deployServiceAccounts(
             project: seedProject.projectId,
             accountId: `sa-terraform-${key}`,
             displayName: description,
+            createIgnoreAlreadyExists: true,
         });
         serviceAccounts[key] = sa;
         saEmails[key] = sa.email;

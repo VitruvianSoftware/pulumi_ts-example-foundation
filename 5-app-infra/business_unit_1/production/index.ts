@@ -19,10 +19,12 @@ export = async () => {
     const hostname = config.get("hostname") || "example-app";
 
     // Service account for the compute instance
+    // createIgnoreAlreadyExists matches Go foundation's 5-app-infra/env_base.go
     const sa = new gcp.serviceaccount.Account("example-app-sa", {
         project: projectId,
         accountId: "sa-example-app",
         displayName: "Example app service Account",
+        createIgnoreAlreadyExists: true,
     });
 
     // Instance template

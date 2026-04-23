@@ -34,6 +34,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
@@ -71,36 +72,23 @@ jobs:
       - name: Checkout foundation
         uses: actions/checkout@v4
 
-      - name: Checkout library
-        uses: actions/checkout@v4
-        with:
-          repository: VitruvianSoftware/pulumi-library
-          path: pulumi-library
-
-      - name: Symlink library
-        run: ln -s $(pwd)/pulumi-library ../pulumi-library
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      # Install root-level dependencies first so that the shared
-      # modules/ directory can resolve @pulumi/pulumi, @pulumi/gcp, etc.
-      # Stages reference ../modules/ via relative imports, and TypeScript
-      # resolves module dependencies from the file's own directory tree.
-      - name: Build library
-        working-directory: ../pulumi-library/ts
-        run: |
-          npm install
-          npm run build
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@vitruviansoftware"
 
       - name: Install root dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install stage dependencies
         working-directory: ${{ matrix.stage }}
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: TypeScript compile check
         working-directory: ${{ matrix.stage }}
@@ -114,31 +102,20 @@ jobs:
       - name: Checkout foundation
         uses: actions/checkout@v4
 
-      - name: Checkout library
-        uses: actions/checkout@v4
-        with:
-          repository: VitruvianSoftware/pulumi-library
-          path: pulumi-library
-
-      - name: Symlink library
-        run: ln -s $(pwd)/pulumi-library ../pulumi-library
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Build library
-        working-directory: ../pulumi-library/ts
-        run: |
-          npm install
-          npm run build
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@vitruviansoftware"
 
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run unit tests
-        run: npx vitest run --passWithNoTests
+        run: npx vitest run
 
   commitlint:
     name: Commit Lint

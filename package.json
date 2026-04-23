@@ -4,9 +4,9 @@
     "version": "1.0.0",
     "description": "Pulumi TypeScript port of terraform-example-foundation",
     "scripts": {
-        "test": "vitest run --passWithNoTests",
-        "test:watch": "vitest --passWithNoTests",
-        "test:coverage": "vitest run --coverage --passWithNoTests"
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage"
     },
     "devDependencies": {
         "@types/node": "^22",
@@ -19,21 +19,21 @@
         "@pulumi/gcp": "^8.0.0",
         "@pulumi/pulumi": "^3.113.0",
         "@pulumi/random": "^4.16.0",
-        "@vitruviansoftware/pulumi-budget": "file:../pulumi-library/ts/packages/budget",
-        "@vitruviansoftware/pulumi-cb-private-pool": "file:../pulumi-library/ts/packages/cb-private-pool",
-        "@vitruviansoftware/pulumi-centralized-logging": "file:../pulumi-library/ts/packages/centralized-logging",
-        "@vitruviansoftware/pulumi-dns-hub": "file:../pulumi-library/ts/packages/dns-hub",
-        "@vitruviansoftware/pulumi-google-group": "file:../pulumi-library/ts/packages/google-group",
-        "@vitruviansoftware/pulumi-hierarchical-firewall-policy": "file:../pulumi-library/ts/packages/hierarchical-firewall-policy",
-        "@vitruviansoftware/pulumi-instance-template": "file:../pulumi-library/ts/packages/instance-template",
-        "@vitruviansoftware/pulumi-kms": "file:../pulumi-library/ts/packages/kms",
-        "@vitruviansoftware/pulumi-network": "file:../pulumi-library/ts/packages/network",
-        "@vitruviansoftware/pulumi-network-peering": "file:../pulumi-library/ts/packages/network-peering",
-        "@vitruviansoftware/pulumi-org-policy": "file:../pulumi-library/ts/packages/org-policy",
-        "@vitruviansoftware/pulumi-parent-iam": "file:../pulumi-library/ts/packages/parent-iam",
-        "@vitruviansoftware/pulumi-private-service-connect": "file:../pulumi-library/ts/packages/private-service-connect",
-        "@vitruviansoftware/pulumi-project-factory": "file:../pulumi-library/ts/packages/project-factory",
-        "@vitruviansoftware/pulumi-simple-bucket": "file:../pulumi-library/ts/packages/simple-bucket",
-        "@vitruviansoftware/pulumi-vpn-ha": "file:../pulumi-library/ts/packages/vpn-ha"
+        "@vitruviansoftware/pulumi-budget": "^0.2.0",
+        "@vitruviansoftware/pulumi-cb-private-pool": "^0.2.0",
+        "@vitruviansoftware/pulumi-centralized-logging": "^0.2.0",
+        "@vitruviansoftware/pulumi-dns-hub": "^0.2.0",
+        "@vitruviansoftware/pulumi-google-group": "^0.2.0",
+        "@vitruviansoftware/pulumi-hierarchical-firewall-policy": "^0.2.0",
+        "@vitruviansoftware/pulumi-instance-template": "^0.2.0",
+        "@vitruviansoftware/pulumi-kms": "^0.2.0",
+        "@vitruviansoftware/pulumi-network": "^0.2.0",
+        "@vitruviansoftware/pulumi-network-peering": "^0.2.0",
+        "@vitruviansoftware/pulumi-org-policy": "^0.2.0",
+        "@vitruviansoftware/pulumi-parent-iam": "^0.2.0",
+        "@vitruviansoftware/pulumi-private-service-connect": "^0.2.0",
+        "@vitruviansoftware/pulumi-project-factory": "^0.2.0",
+        "@vitruviansoftware/pulumi-simple-bucket": "^0.2.0",
+        "@vitruviansoftware/pulumi-vpn-ha": "^0.2.0"
     }
 }
