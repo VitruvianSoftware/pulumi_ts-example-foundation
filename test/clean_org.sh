@@ -111,6 +111,8 @@ for prefix in "${PROJECT_PREFIXES[@]}"; do
     for project in $projects; do
         echo "  Found project: $project"
         if [ "$DRY_RUN" = false ]; then
+            echo "  Unlinking billing for project: $project"
+            gcloud beta billing projects unlink "$project" 2>/dev/null || true
             echo "  Deleting project: $project"
             gcloud projects delete "$project" --quiet 2>/dev/null || true
         else

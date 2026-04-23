@@ -58,7 +58,6 @@ export async function deployCloudbuild(
         "logging.googleapis.com",
         "iam.googleapis.com",
         "admin.googleapis.com",
-        "sourcerepo.googleapis.com",
         "workflows.googleapis.com",
         "artifactregistry.googleapis.com",
         "cloudbuild.googleapis.com",
@@ -81,23 +80,9 @@ export async function deployCloudbuild(
         }, { parent: cicdProject }));
     }
 
-    // Cloud Source Repos
-    const csrRepos = [
-        "gcp-policies",
-        "gcp-bootstrap",
-        "tf-cloudbuilder",
-        "gcp-org",
-        "gcp-environments",
-        "gcp-networks",
-        "gcp-projects",
-    ];
-
-    for (const repoName of csrRepos) {
-        new gcp.sourcerepo.Repository(`csr-${repoName}`, {
-            project: cicdProject.projectId,
-            name: repoName,
-        }, { dependsOn: cicdServices });
-    }
+    // Cloud Source Repositories (Deprecated by Google for new customers as of June 2024)
+    // See: https://cloud.google.com/source-repositories/docs
+    // Repositories must be created in an alternative solution like Secure Source Manager or GitHub.
 
     // Artifact Registry for terraform builder images
     const garRepo = new gcp.artifactregistry.Repository("tf-runners", {

@@ -27,7 +27,6 @@ export = async () => {
         deletionPolicy: config.get("project_deletion_policy") || "PREVENT",
         activateApis: [
             "cloudbuild.googleapis.com",
-            "sourcerepo.googleapis.com",
             "cloudresourcemanager.googleapis.com",
             "iam.googleapis.com",
             "billingbudgets.googleapis.com",
