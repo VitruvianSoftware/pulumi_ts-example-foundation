@@ -71,6 +71,12 @@ jobs:
       - name: Checkout foundation
         uses: actions/checkout@v4
 
+      - name: Checkout library
+        uses: actions/checkout@v4
+        with:
+          repository: VitruvianSoftware/pulumi-library
+          path: ../pulumi-library
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -80,6 +86,12 @@ jobs:
       # modules/ directory can resolve @pulumi/pulumi, @pulumi/gcp, etc.
       # Stages reference ../modules/ via relative imports, and TypeScript
       # resolves module dependencies from the file's own directory tree.
+      - name: Build library
+        working-directory: ../pulumi-library/ts
+        run: |
+          npm install
+          npm run build
+
       - name: Install root dependencies
         run: npm install
 
@@ -99,10 +111,22 @@ jobs:
       - name: Checkout foundation
         uses: actions/checkout@v4
 
+      - name: Checkout library
+        uses: actions/checkout@v4
+        with:
+          repository: VitruvianSoftware/pulumi-library
+          path: ../pulumi-library
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Build library
+        working-directory: ../pulumi-library/ts
+        run: |
+          npm install
+          npm run build
 
       - name: Install dependencies
         run: npm install
