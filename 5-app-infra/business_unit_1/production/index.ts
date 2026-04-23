@@ -6,7 +6,7 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { InstanceTemplate, ComputeInstance } from "@vitruviansoftware/pulumi-library";
+import { InstanceTemplate, ComputeInstance } from "@vitruviansoftware/pulumi-instance-template";
 
 export = async () => {
     const config = new pulumi.Config();
