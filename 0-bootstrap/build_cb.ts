@@ -34,7 +34,6 @@ export async function deployCloudbuild(
     const cicdProject = new gcp.organizations.Project("cicd-project", {
         projectId: pulumi.interpolate`${cfg.projectPrefix}-b-cicd-${suffix.result}`,
         name: pulumi.interpolate`${cfg.projectPrefix}-b-cicd-${suffix.result}`,
-        orgId: cfg.parentType === "organization" ? cfg.orgId : undefined,
         folderId: bootstrapFolder.name,
         billingAccount: cfg.billingAccount,
         deletionPolicy: cfg.projectDeletionPolicy,
