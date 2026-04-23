@@ -11,9 +11,9 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import { loadOrgConfig } from "./config";
-import { ProjectFactory } from "@vitruviansoftware/pulumi-project-factory";
-import { OrgPolicyBoolean, OrgPolicyList, DomainRestrictedSharing } from "@vitruviansoftware/pulumi-org-policy";
-import { CentralizedLogging } from "@vitruviansoftware/pulumi-centralized-logging";
+import { ProjectFactory } from "@vitruviansoftware/foundation-project-factory";
+import { OrgPolicyBoolean, OrgPolicyList, DomainRestrictedSharing } from "@vitruviansoftware/foundation-org-policy";
+import { CentralizedLogging } from "@vitruviansoftware/foundation-centralized-logging";
 
 export = async () => {
     const cfg = loadOrgConfig(new pulumi.Config());

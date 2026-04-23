@@ -8,7 +8,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
 import * as random from "@pulumi/random";
 import { BootstrapConfig } from "./config";
-import { CbPrivatePool } from "@vitruviansoftware/pulumi-cb-private-pool";
+import { CbPrivatePool } from "@vitruviansoftware/foundation-cb-private-pool";
 
 export interface CloudbuildOutputs {
     cicdProjectId: pulumi.Output<string>;

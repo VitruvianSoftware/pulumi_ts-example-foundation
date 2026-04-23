@@ -4,7 +4,7 @@
  */
 
 import * as pulumi from "@pulumi/pulumi";
-import { HierarchicalFirewallPolicy } from "@vitruviansoftware/pulumi-hierarchical-firewall-policy";
+import { HierarchicalFirewallPolicy } from "@vitruviansoftware/foundation-hierarchical-firewall-policy";
 
 export = async () => {
     const config = new pulumi.Config();
