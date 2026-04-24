@@ -57,6 +57,72 @@ export = async () => {
         numInstances: numInstances,
     });
 
+    // ====================================================================
+    // Confidential Space Compute
+    // ====================================================================
+    const confSpaceProjectId = projectRef.getOutput("confidential_space_project_id") as pulumi.Output<string>;
+    const confSpaceProjectNum = projectRef.getOutput("confidential_space_project_number") as pulumi.Output<string>;
+    const confSpaceSaEmail = projectRef.getOutput("confidential_space_workload_sa") as pulumi.Output<string>;
+    
+    const wip = new gcp.iam.WorkloadIdentityPool("n-conf-space-pool", {
+        workloadIdentityPoolId: "confidential-space-pool",
+        disabled: false,
+        project: confSpaceProjectId,
+    });
+
+    const attestationProvider = new gcp.iam.WorkloadIdentityPoolProvider("n-attestation-verifier", {
+        workloadIdentityPoolId: wip.workloadIdentityPoolId,
+        workloadIdentityPoolProviderId: "attestation-verifier",
+        displayName: "attestation-verifier",
+        description: "OIDC provider for confidential computing attestation",
+        project: confSpaceProjectId,
+        oidc: {
+            issuerUri: "https://confidentialcomputing.googleapis.com/",
+            allowedAudiences: ["https://sts.googleapis.com"],
+        },
+        attributeMapping: {
+            "google.subject": '"gcpcs::" + assertion.submods.container.image_digest + "::" + assertion.submods.gce.project_number + "::" + assertion.submods.gce.instance_id',
+            "attribute.image_digest": "assertion.submods.container.image_digest",
+        },
+        attributeCondition: pulumi.interpolate`assertion.submods.container.image_digest == "sha256:0000000000000000000000000000000000000000000000000000000000000000" && "${confSpaceSaEmail}" in assertion.google_service_accounts && assertion.swname == "CONFIDENTIAL_SPACE" && "STABLE" in assertion.submods.confidential_space.support_attributes`,
+    });
+
+    // Workload identity binding for the service account
+    new gcp.serviceaccount.IAMMember("n-workload-identity-binding", {
+        serviceAccountId: pulumi.interpolate`projects/${confSpaceProjectId}/serviceAccounts/${confSpaceSaEmail}`,
+        role: "roles/iam.workloadIdentityUser",
+        member: pulumi.interpolate`principalSet://iam.googleapis.com/projects/${confSpaceProjectNum}/locations/global/workloadIdentityPools/${wip.workloadIdentityPoolId}/*`,
+    });
+
+    const confTemplate = new InstanceTemplate("n-confidential-template", {
+        projectId: confSpaceProjectId,
+        namePrefix: "conf-space-app",
+        machineType: "n2d-standard-2",
+        region: region,
+        sourceImageFamily: "confidential-space",
+        sourceImageProject: "confidential-space-images",
+        diskSizeGb: 20,
+        diskType: "pd-ssd",
+        subnetwork: `projects/${config.get("shared_vpc_host_project") || ""}/regions/${region}/subnetworks/sb-n-svpc-${region}`,
+        enableConfidentialVm: true,
+        metadata: {
+            "tee-image-reference": `${region}-docker.pkg.dev/fake-project/tf-runners/confidential_space_image:latest`,
+        },
+        serviceAccount: {
+            email: confSpaceSaEmail,
+            scopes: ["cloud-platform"],
+        },
+    });
+
+    const confInstance = new ComputeInstance("n-confidential-instance", {
+        projectId: confSpaceProjectId,
+        zone: `${region}-a`,
+        instanceName: "conf-space-instance",
+        instanceTemplate: confTemplate.templateSelfLink,
+        subnetwork: `projects/${config.get("shared_vpc_host_project") || ""}/regions/${region}/subnetworks/sb-n-svpc-${region}`,
+        numInstances: 1,
+    });
+
     return {
         project_id: projectId,
         region: region,

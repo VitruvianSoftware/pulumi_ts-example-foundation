@@ -20,6 +20,7 @@
     "@pulumi/pulumi": "^3.113.0",
     "@pulumi/random": "^4.16.0",
     "@vitruviansoftware/foundation-budget": "^0.3.0",
+    "@vitruviansoftware/foundation-cai-monitoring": "^0.1.0",
     "@vitruviansoftware/foundation-cb-private-pool": "^0.3.1",
     "@vitruviansoftware/foundation-centralized-logging": "^0.3.0",
     "@vitruviansoftware/foundation-dns-hub": "^0.3.0",
@@ -34,8 +35,7 @@
     "@vitruviansoftware/foundation-private-service-connect": "^0.3.0",
     "@vitruviansoftware/foundation-project-factory": "^0.3.0",
     "@vitruviansoftware/foundation-simple-bucket": "^0.3.0",
-    "@vitruviansoftware/foundation-vpn-ha": "^0.3.0",
-    "@vitruviansoftware/foundation-vpc-service-controls": "^0.1.0",
-    "@vitruviansoftware/foundation-cai-monitoring": "^0.1.0"
+    "@vitruviansoftware/foundation-vpc-service-controls": "^0.2.1",
+    "@vitruviansoftware/foundation-vpn-ha": "^0.3.0"
   }
 }

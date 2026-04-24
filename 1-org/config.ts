@@ -37,6 +37,7 @@ export interface OrgConfig {
     enableCaiMonitoring: boolean;
     enableSccResources: boolean;
     enableKmsKeyUsageTracking: boolean;
+    createAccessContextManagerAccessPolicy: boolean;
     caiMonitoringKmsForceDestroy: boolean;
     projectDeletionPolicy: string;
     folderDeletionProtection: boolean;
@@ -94,6 +95,7 @@ export function loadOrgConfig(config: pulumi.Config): OrgConfig {
         enableCaiMonitoring: config.getBoolean("enable_cai_monitoring") ?? false,
         enableSccResources: config.getBoolean("enable_scc_resources") ?? false,
         enableKmsKeyUsageTracking: config.getBoolean("enable_kms_key_usage_tracking") ?? true,
+        createAccessContextManagerAccessPolicy: config.getBoolean("create_access_context_manager_access_policy") ?? true,
         caiMonitoringKmsForceDestroy: config.getBoolean("cai_monitoring_kms_force_destroy") ?? false,
         projectDeletionPolicy: config.get("project_deletion_policy") || "PREVENT",
         folderDeletionProtection: config.getBoolean("folder_deletion_protection") ?? true,
