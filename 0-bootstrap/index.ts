@@ -136,7 +136,7 @@ export = async () => {
 
     // State bucket for Terraform/Pulumi state
     const stateBucket = new gcp.storage.Bucket("seed-state-bucket", {
-        name: `${cfg.bucketPrefix}-${cfg.projectPrefix}-b-seed-tfstate`,
+        name: pulumi.interpolate`${cfg.bucketPrefix}-${cfg.projectPrefix}-b-seed-tfstate-${seedSuffix.result}`,
         project: seedProject.projectId,
         location: cfg.defaultRegionGcs,
         forceDestroy: cfg.bucketForceDestroy,
