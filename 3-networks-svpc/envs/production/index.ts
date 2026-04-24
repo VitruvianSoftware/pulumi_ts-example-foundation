@@ -11,7 +11,7 @@ export = async () => {
     const config = new pulumi.Config();
     const orgRef = new pulumi.StackReference("org");
 
-    const sharedVpcProjects = orgRef.getOutput("shared_vpc_projects") as pulumi.Output<Record<string, { project_id: string }>>;
+    const sharedVpcProjects = orgRef.getOutput("shared_vpc_projects") as pulumi.Output<Record<string, { project_id: string; project_number: string }>>;
     const envProjectId = sharedVpcProjects.apply(p => p["production"]?.project_id || "");
 
     const defaultRegion = config.get("default_region") || "us-central1";
@@ -50,25 +50,28 @@ export = async () => {
     });
 
     // VPC Service Controls Perimeter (was missing — mirrors Go foundation's section 10)
-    const policyId = config.get("access_context_manager_policy_id") || "";
+    const policyId = orgRef.getOutput("access_context_manager_policy_id") as pulumi.Output<string>;
     let perimeterName: pulumi.Output<string> | undefined;
 
-    if (policyId) {
-        const vpcScMembers = config.getObject<string[]>("vpc_sc_members") || [];
-        const vpcScProjects = config.getObject<string[]>("vpc_sc_project_numbers") || [];
+    const vpcScMembers = config.getObject<string[]>("vpc_sc_members") || [];
+    const enforceVpcSc = config.getBoolean("enforce_vpc_sc") ?? true;
+    
+    // In SVPC, the host project is the one we are protecting initially
+    const envProjectNumber = sharedVpcProjects.apply(p => p["production"]?.project_number || "");
+    const additionalVpcScProjects = config.getObject<string[]>("vpc_sc_project_numbers") || [];
+    const allProjectNumbers = [envProjectNumber, ...additionalVpcScProjects];
 
-        const vpcSc = new VpcServiceControls("vpc-sc-perimeter", {
-            policyId,
-            prefix: "p_svpc",
-            members: vpcScMembers,
-            membersDryRun: vpcScMembers,
-            projectNumbers: vpcScProjects,
-            restrictedServices: DEFAULT_RESTRICTED_SERVICES,
-            enforce: config.getBoolean("enforce_vpc_sc") ?? true,
-        });
+    const vpcSc = new VpcServiceControls("vpc-sc-perimeter", {
+        policyId: policyId,
+        prefix: "p_svpc",
+        members: vpcScMembers,
+        membersDryRun: vpcScMembers,
+        projectNumbers: allProjectNumbers,
+        restrictedServices: DEFAULT_RESTRICTED_SERVICES,
+        enforce: enforceVpcSc,
+    });
 
-        perimeterName = vpcSc.perimeter.name;
-    }
+    perimeterName = vpcSc.perimeter.name;
 
     return {
         network_name: svpc.networkName,

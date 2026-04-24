@@ -458,6 +458,22 @@ export = async () => {
     }
 
     /*************************************************
+      Access Context Manager Policy (mirrors org_policy.tf)
+    *************************************************/
+    let accessContextManagerPolicyId: pulumi.Output<string> | undefined;
+    if (cfg.createAccessContextManagerAccessPolicy) {
+        const accessPolicy = new gcp.accesscontextmanager.AccessPolicy("access-policy", {
+            parent: `organizations/${cfg.orgId}`,
+            title: "default policy",
+        });
+        // We get the name which is accessPolicies/123456789 or similar
+        // The upstream outputs exactly the numeric ID but sometimes the name.
+        // Let's output the full name or ID depending on upstream usage.
+        // TF `google_access_context_manager_access_policy` id is the name.
+        accessContextManagerPolicyId = accessPolicy.name;
+    }
+
+    /*************************************************
       Billing Export Dataset
     *************************************************/
     new gcp.bigquery.Dataset("billing-export-dataset", {
@@ -472,6 +488,7 @@ export = async () => {
     *************************************************/
     return {
         org_id: cfg.orgId,
+        access_context_manager_policy_id: accessContextManagerPolicyId,
         scc_notification_name: cfg.sccNotificationName,
         parent_resource_id: cfg.parentId,
         parent_resource_type: cfg.parentType,
@@ -488,7 +505,7 @@ export = async () => {
         net_hub_project_number: networkHub?.projectNumber,
         domains_to_allow: cfg.domainsToAllow,
         shared_vpc_projects: Object.fromEntries(
-            Object.entries(environmentNetworkProjects).map(([k, v]) => [k, { project_id: v.projectId }])
+            Object.entries(environmentNetworkProjects).map(([k, v]) => [k, { project_id: v.projectId, project_number: v.projectNumber }])
         ),
         tags: {
             key_id: tagKey.id,
