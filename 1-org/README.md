@@ -25,9 +25,6 @@ example-organization
     ├── prj-d-svpc
     ├── prj-n-svpc
     └── prj-p-svpc
-└── fldr-development
-└── fldr-nonproduction
-└── fldr-production
 ```
 
 ### Key Resources
@@ -229,9 +226,6 @@ Consider the following:
 |------|-------------|
 | `common_folder_name` | Common folder ID |
 | `network_folder_name` | Network folder ID |
-| `development_folder_name` | Development folder ID |
-| `nonproduction_folder_name` | Non-production folder ID |
-| `production_folder_name` | Production folder ID |
 | `logging_project_id` | Centralized logging project ID |
 | `billing_export_project_id` | Billing export project ID |
 | `scc_project_id` | SCC notifications project ID |

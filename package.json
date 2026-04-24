@@ -34,6 +34,8 @@
     "@vitruviansoftware/foundation-private-service-connect": "^0.3.0",
     "@vitruviansoftware/foundation-project-factory": "^0.3.0",
     "@vitruviansoftware/foundation-simple-bucket": "^0.3.0",
-    "@vitruviansoftware/foundation-vpn-ha": "^0.3.0"
+    "@vitruviansoftware/foundation-vpn-ha": "^0.3.0",
+    "@vitruviansoftware/foundation-vpc-service-controls": "^0.1.0",
+    "@vitruviansoftware/foundation-cai-monitoring": "^0.1.0"
   }
 }

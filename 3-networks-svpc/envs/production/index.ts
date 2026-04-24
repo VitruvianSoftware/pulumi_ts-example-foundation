@@ -5,6 +5,7 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import { SharedVpc } from "../../modules/shared_vpc";
+import { VpcServiceControls, DEFAULT_RESTRICTED_SERVICES } from "@vitruviansoftware/foundation-vpc-service-controls";
 
 export = async () => {
     const config = new pulumi.Config();
@@ -48,8 +49,31 @@ export = async () => {
         ],
     });
 
+    // VPC Service Controls Perimeter (was missing — mirrors Go foundation's section 10)
+    const policyId = config.get("access_context_manager_policy_id") || "";
+    let perimeterName: pulumi.Output<string> | undefined;
+
+    if (policyId) {
+        const vpcScMembers = config.getObject<string[]>("vpc_sc_members") || [];
+        const vpcScProjects = config.getObject<string[]>("vpc_sc_project_numbers") || [];
+
+        const vpcSc = new VpcServiceControls("vpc-sc-perimeter", {
+            policyId,
+            prefix: "p_svpc",
+            members: vpcScMembers,
+            membersDryRun: vpcScMembers,
+            projectNumbers: vpcScProjects,
+            restrictedServices: DEFAULT_RESTRICTED_SERVICES,
+            enforce: config.getBoolean("enforce_vpc_sc") ?? true,
+        });
+
+        perimeterName = vpcSc.perimeter.name;
+    }
+
     return {
         network_name: svpc.networkName,
         network_self_link: svpc.networkSelfLink,
+        service_perimeter_name: perimeterName,
     };
 };
+

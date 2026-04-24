@@ -172,8 +172,27 @@ export = async () => {
       Org admins IAM at org level
     *************************************************/
     const orgAdminsRoles = cfg.orgPolicyAdminRole
-        ? ["roles/orgpolicy.policyAdmin", "roles/resourcemanager.organizationAdmin", "roles/billing.user"]
-        : ["roles/resourcemanager.organizationAdmin", "roles/billing.user"];
+        ? [
+            "roles/orgpolicy.policyAdmin",
+            "roles/resourcemanager.organizationAdmin",
+            "roles/billing.user",
+            "roles/resourcemanager.tagAdmin",
+            "roles/resourcemanager.tagUser",
+            "roles/logging.configWriter",
+            "roles/securitycenter.notificationConfigEditor",
+            "roles/accesscontextmanager.policyAdmin",
+            "roles/essentialcontacts.admin"
+          ]
+        : [
+            "roles/resourcemanager.organizationAdmin",
+            "roles/billing.user",
+            "roles/resourcemanager.tagAdmin",
+            "roles/resourcemanager.tagUser",
+            "roles/logging.configWriter",
+            "roles/securitycenter.notificationConfigEditor",
+            "roles/accesscontextmanager.policyAdmin",
+            "roles/essentialcontacts.admin"
+          ];
 
     for (const role of orgAdminsRoles) {
         new gcp.organizations.IAMMember(`org-admin-${role.replace(/\//g, "-")}`, {

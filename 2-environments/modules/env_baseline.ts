@@ -36,6 +36,7 @@ export interface EnvBaselineOutputs {
     envFolder: gcp.organizations.Folder;
     envKmsProjectId: pulumi.Output<string>;
     envSecretsProjectId: pulumi.Output<string>;
+    assuredWorkloadId?: pulumi.Output<string>;
 }
 
 export function deployEnvBaseline(args: EnvBaselineArgs): EnvBaselineOutputs {
@@ -108,9 +109,28 @@ export function deployEnvBaseline(args: EnvBaselineArgs): EnvBaselineOutputs {
         });
     }
 
+    // Assured Workload (optional — FedRAMP compliance)
+    // Mirrors: assured_workload.tf — google_assured_workloads_workload.workload
+    let assuredWorkloadId: pulumi.Output<string> | undefined;
+    if (args.assuredWorkloadConfiguration?.enabled) {
+        const workload = new gcp.assuredworkloads.Workload(`${name}-assured-workload`, {
+            organization: args.orgId,
+            billingAccount: `billingAccounts/${args.billingAccount}`,
+            provisionedResourcesParent: envFolder.id,
+            complianceRegime: args.assuredWorkloadConfiguration.complianceRegime || "FEDRAMP_MODERATE",
+            displayName: args.assuredWorkloadConfiguration.displayName || `${name}-workload`,
+            location: args.assuredWorkloadConfiguration.location || "us-central1",
+            resourceSettings: [{
+                resourceType: args.assuredWorkloadConfiguration.resourceType || "CONSUMER_FOLDER",
+            }],
+        }, { dependsOn: [envFolder] });
+        assuredWorkloadId = workload.id;
+    }
+
     return {
         envFolder,
         envKmsProjectId: envKms.projectId,
         envSecretsProjectId: envSecrets.projectId,
+        assuredWorkloadId,
     };
 }

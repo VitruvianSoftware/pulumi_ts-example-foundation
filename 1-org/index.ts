@@ -14,12 +14,16 @@ import { loadOrgConfig } from "./config";
 import { ProjectFactory } from "@vitruviansoftware/foundation-project-factory";
 import { OrgPolicyBoolean, OrgPolicyList, DomainRestrictedSharing } from "@vitruviansoftware/foundation-org-policy";
 import { CentralizedLogging } from "@vitruviansoftware/foundation-centralized-logging";
+import { deployOrgIAM, OrgProjectRefs } from "./iam";
+import { deployEssentialContacts } from "./essential_contacts";
+import { CAIMonitoring } from "@vitruviansoftware/foundation-cai-monitoring";
 
 export = async () => {
     const cfg = loadOrgConfig(new pulumi.Config());
 
     // Stack reference to 0-bootstrap for remote state
-    const bootstrapRef = new pulumi.StackReference("bootstrap");
+    const bootstrapStackName = new pulumi.Config().get("bootstrap_stack_ref") || "bootstrap";
+    const bootstrapRef = new pulumi.StackReference(bootstrapStackName);
     const commonConfig = bootstrapRef.getOutput("common_config") as pulumi.Output<Record<string, string>>;
     const requiredGroups = bootstrapRef.getOutput("required_groups") as pulumi.Output<Record<string, string>>;
     const optionalGroups = bootstrapRef.getOutput("optional_groups") as pulumi.Output<Record<string, string>>;
@@ -46,38 +50,32 @@ export = async () => {
         deletionProtection: cfg.folderDeletionProtection,
     });
 
-    const developmentFolder = new gcp.organizations.Folder("development-folder", {
-        displayName: pulumi.interpolate`${folderPrefix}-development`,
-        parent: parent,
-        deletionProtection: cfg.folderDeletionProtection,
-    });
 
-    const nonproductionFolder = new gcp.organizations.Folder("nonproduction-folder", {
-        displayName: pulumi.interpolate`${folderPrefix}-nonproduction`,
-        parent: parent,
-        deletionProtection: cfg.folderDeletionProtection,
-    });
-
-    const productionFolder = new gcp.organizations.Folder("production-folder", {
-        displayName: pulumi.interpolate`${folderPrefix}-production`,
-        parent: parent,
-        deletionProtection: cfg.folderDeletionProtection,
-    });
 
     /*************************************************
       Org Policies (mirrors org_policy.tf)
     *************************************************/
-    // Boolean policies
+    // Boolean policies — expanded to match Go foundation's full list
     const booleanPolicies: Record<string, boolean> = {
+        // Compute Engine hardening
         "compute.disableNestedVirtualization": true,
         "compute.disableSerialPortAccess": true,
         "compute.disableGuestAttributesAccess": true,
         "compute.skipDefaultNetworkCreation": true,
+        "compute.restrictXpnProjectLienRemoval": true,
+        "compute.disableVpcExternalIpv6": true,
+        "compute.setNewProjectDefaultToZonalDNSOnly": true,
+        "compute.requireOsLogin": true,
+        // Cloud SQL hardening
         "sql.restrictPublicIp": true,
         "sql.restrictAuthorizedNetworks": true,
+        // IAM hardening
         "iam.disableServiceAccountKeyCreation": true,
         "iam.automaticIamGrantsForDefaultServiceAccounts": true,
+        "iam.disableServiceAccountKeyUpload": true,
+        // Storage hardening
         "storage.uniformBucketLevelAccess": true,
+        "storage.publicAccessPrevention": true,
     };
 
     for (const [constraint, enforced] of Object.entries(booleanPolicies)) {
@@ -96,11 +94,29 @@ export = async () => {
         values: ["all"],
     });
 
+    // Restrict protocol forwarding to internal only (was missing)
+    new OrgPolicyList("restrict-protocol-forwarding", {
+        orgId: cfg.orgId,
+        constraint: "compute.restrictProtocolForwardingCreationForTypes",
+        policyType: "allow",
+        values: ["INTERNAL"],
+    });
+
     // Domain restricted sharing
     if (cfg.domainsToAllow.length > 0) {
         new DomainRestrictedSharing("domain-restricted-sharing", {
             orgId: cfg.orgId,
             domainsToAllow: cfg.domainsToAllow,
+        });
+    }
+
+    // Essential contacts domain restriction (was missing)
+    if (cfg.essentialContactsDomainsToAllow.length > 0) {
+        new OrgPolicyList("essential-contacts-domain-restriction", {
+            orgId: cfg.orgId,
+            constraint: "essentialcontacts.allowedContactDomains",
+            policyType: "allow",
+            values: cfg.essentialContactsDomainsToAllow.map(d => d.startsWith("@") ? d : `@${d}`),
         });
     }
 
@@ -332,24 +348,39 @@ export = async () => {
             loggingSinkName: "sk-c-logging-pub",
             loggingSinkFilter: "",
         },
-    });
+    }, { dependsOn: [orgAuditLogs] });
 
     /*************************************************
       SCC Notification (mirrors scc_notification.tf)
+      Gated behind enable_scc_resources — SCC must be
+      activated (Standard or Premium tier) before
+      these resources can be created.
     *************************************************/
-    const sccTopic = new gcp.pubsub.Topic("scc-notification-topic", {
-        project: sccNotifications.projectId,
-        name: `top-scc-notification`,
-    });
+    if (cfg.enableSccResources) {
+        const sccTopic = new gcp.pubsub.Topic("scc-notification-topic", {
+            project: sccNotifications.projectId,
+            name: `top-scc-notification`,
+        }, { dependsOn: [sccNotifications] });
 
-    new gcp.securitycenter.NotificationConfig("scc-notification", {
-        configId: cfg.sccNotificationName,
-        organization: cfg.orgId,
-        pubsubTopic: pulumi.interpolate`projects/${sccNotifications.projectId}/topics/${sccTopic.name}`,
-        streamingConfig: {
-            filter: cfg.sccNotificationFilter,
-        },
-    });
+        new gcp.pubsub.Subscription("scc-notification-subscription", {
+            project: sccNotifications.projectId,
+            name: `sub-scc-notification`,
+            topic: sccTopic.name,
+        }, { dependsOn: [sccNotifications] });
+
+        // Uses the SCC v2 API to match upstream Terraform's
+        // google_scc_v2_organization_notification_config resource.
+        new gcp.securitycenter.V2OrganizationNotificationConfig("scc-notification", {
+            configId: cfg.sccNotificationName,
+            organization: cfg.orgId,
+            location: "global",
+            description: "SCC Notification for all active findings",
+            pubsubTopic: sccTopic.id,
+            streamingConfig: {
+                filter: cfg.sccNotificationFilter,
+            },
+        }, { dependsOn: [sccNotifications] });
+    }
 
     /*************************************************
       Tags (mirrors tags.tf)
@@ -361,12 +392,69 @@ export = async () => {
     });
 
     const tagValues: Record<string, gcp.tags.TagValue> = {};
-    for (const env of ["bootstrap", "common", "development", "nonproduction", "production", "network"]) {
+    for (const env of ["bootstrap", "development", "nonproduction", "production"]) {
         tagValues[env] = new gcp.tags.TagValue(`tag-value-${env}`, {
             parent: tagKey.id,
             shortName: env,
             description: `${env} environment tag value`,
         });
+    }
+
+    // Tag bindings to folders (was missing — TF binds tags to common, network, bootstrap folders)
+    new gcp.tags.TagBinding("common-folder-tag", {
+        parent: pulumi.interpolate`//cloudresourcemanager.googleapis.com/${commonFolder.name}`,
+        tagValue: tagValues["production"].id,
+    });
+
+    new gcp.tags.TagBinding("network-folder-tag", {
+        parent: pulumi.interpolate`//cloudresourcemanager.googleapis.com/${networkFolder.name}`,
+        tagValue: tagValues["production"].id,
+    });
+
+    if (bootstrapFolderName) {
+        new gcp.tags.TagBinding("bootstrap-folder-tag", {
+            parent: pulumi.interpolate`//cloudresourcemanager.googleapis.com/${bootstrapFolderName}`,
+            tagValue: tagValues["bootstrap"].id,
+        });
+    }
+
+    /*************************************************
+      Essential Contacts (was missing)
+    *************************************************/
+    deployEssentialContacts(cfg);
+
+    /*************************************************
+      IAM Bindings (was missing — 20+ resources)
+    *************************************************/
+    const orgProjectRefs: OrgProjectRefs = {
+        auditLogsProjectId: orgAuditLogs.projectId,
+        billingExportProjectId: orgBillingExport.projectId,
+        orgSecretsProjectId: orgSecrets.projectId,
+        orgKmsProjectId: commonKms.projectId,
+        sccProjectId: sccNotifications.projectId,
+        netHubProjectId: networkHub?.projectId,
+    };
+    deployOrgIAM(cfg, orgProjectRefs);
+
+    /*************************************************
+      CAI Monitoring (was missing — mirrors cai_monitoring.go)
+    *************************************************/
+    if (cfg.enableCaiMonitoring) {
+        const builderSAEmail = pulumi.interpolate`projects/${sccNotifications.projectId}/serviceAccounts/cai-monitoring-builder@${sccNotifications.projectId}.iam.gserviceaccount.com`;
+
+        new CAIMonitoring("cai-monitoring", {
+            orgId: cfg.orgId,
+            projectId: sccNotifications.projectId,
+            location: cfg.defaultRegion,
+            buildServiceAccount: builderSAEmail,
+            functionSourcePath: "./cai-monitoring-function",
+            rolesToMonitor: [
+                "roles/owner",
+                "roles/editor",
+                "roles/resourcemanager.organizationAdmin",
+                "roles/iam.serviceAccountTokenCreator",
+            ],
+        }, { dependsOn: [sccNotifications] });
     }
 
     /*************************************************
@@ -377,7 +465,7 @@ export = async () => {
         datasetId: "billing_data",
         friendlyName: "GCP Billing Data",
         location: cfg.billingExportDatasetLocation ?? "US",
-    });
+    }, { dependsOn: [orgBillingExport] });
 
     /*************************************************
       Outputs (mirrors outputs.tf)
@@ -389,9 +477,6 @@ export = async () => {
         parent_resource_type: cfg.parentType,
         common_folder_name: commonFolder.name,
         network_folder_name: networkFolder.name,
-        development_folder_name: developmentFolder.name,
-        nonproduction_folder_name: nonproductionFolder.name,
-        production_folder_name: productionFolder.name,
         org_audit_logs_project_id: orgAuditLogs.projectId,
         org_billing_export_project_id: orgBillingExport.projectId,
         org_secrets_project_id: orgSecrets.projectId,

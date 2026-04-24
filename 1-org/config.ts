@@ -35,6 +35,8 @@ export interface OrgConfig {
     sccNotificationFilter: string;
     createUniqueTagKey: boolean;
     enableCaiMonitoring: boolean;
+    enableSccResources: boolean;
+    enableKmsKeyUsageTracking: boolean;
     caiMonitoringKmsForceDestroy: boolean;
     projectDeletionPolicy: string;
     folderDeletionProtection: boolean;
@@ -90,6 +92,8 @@ export function loadOrgConfig(config: pulumi.Config): OrgConfig {
         sccNotificationFilter: config.get("scc_notification_filter") || "state = \"ACTIVE\"",
         createUniqueTagKey: config.getBoolean("create_unique_tag_key") ?? false,
         enableCaiMonitoring: config.getBoolean("enable_cai_monitoring") ?? false,
+        enableSccResources: config.getBoolean("enable_scc_resources") ?? false,
+        enableKmsKeyUsageTracking: config.getBoolean("enable_kms_key_usage_tracking") ?? true,
         caiMonitoringKmsForceDestroy: config.getBoolean("cai_monitoring_kms_force_destroy") ?? false,
         projectDeletionPolicy: config.get("project_deletion_policy") || "PREVENT",
         folderDeletionProtection: config.getBoolean("folder_deletion_protection") ?? true,
