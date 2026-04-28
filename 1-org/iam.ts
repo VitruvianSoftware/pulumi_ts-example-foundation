@@ -171,6 +171,18 @@ export function deployOrgIAM(cfg: OrgConfig, proj: OrgProjectRefs): void {
     }
 
     // ========================================================================
+    // 7b. KMS Protected Resources Viewer (mirrors TF iam.tf:174-179)
+    // ========================================================================
+    if (kmsAdmin && cfg.enableKmsKeyUsageTracking) {
+        const kmsGroup = `group:${kmsAdmin}`;
+        new gcp.organizations.IAMMember("kms-protected-resources-viewer", {
+            orgId: cfg.orgId,
+            role: "roles/cloudkms.protectedResourcesViewer",
+            member: kmsGroup,
+        });
+    }
+
+    // ========================================================================
     // 8. KMS Org Service Agent IAM
     // Grants roles/cloudkms.orgServiceAgent to the KMS service agent.
     // Upstream TF uses `gcloud beta services identity create --organization`

@@ -72,6 +72,12 @@ export = async () => {
         },
     }, { dependsOn: groupOutputs.dependsOn, protect: true });
 
+    // Disable default service accounts on seed project (mirrors TF default_service_account = "disable")
+    new gcp.projects.DefaultServiceAccounts("seed-default-sa-disable", {
+        project: seedProject.projectId,
+        action: "DISABLE",
+    });
+
     // Enable APIs on seed project
     const seedApis = [
         "serviceusage.googleapis.com",

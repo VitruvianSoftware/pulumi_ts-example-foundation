@@ -102,13 +102,6 @@ export = async () => {
         values: ["INTERNAL"],
     });
 
-    // Domain restricted sharing
-    if (cfg.domainsToAllow.length > 0) {
-        new DomainRestrictedSharing("domain-restricted-sharing", {
-            orgId: cfg.orgId,
-            domainsToAllow: cfg.domainsToAllow,
-        });
-    }
 
     // Essential contacts domain restriction (was missing)
     if (cfg.essentialContactsDomainsToAllow.length > 0) {
@@ -117,6 +110,16 @@ export = async () => {
             constraint: "essentialcontacts.allowedContactDomains",
             policyType: "allow",
             values: cfg.essentialContactsDomainsToAllow.map(d => d.startsWith("@") ? d : `@${d}`),
+        });
+    }
+
+    // Cloud Build: restrict to allowed worker pools (mirrors TF org_policy.tf:135-147)
+    if (cfg.enforceAllowedWorkerPools && cfg.cloudBuildPrivateWorkerPoolId) {
+        new OrgPolicyList("allowed-worker-pools", {
+            orgId: cfg.orgId,
+            constraint: "cloudbuild.allowedWorkerPools",
+            policyType: "allow",
+            values: [cfg.cloudBuildPrivateWorkerPoolId],
         });
     }
 
@@ -322,7 +325,7 @@ export = async () => {
     /*************************************************
       Centralized Logging (mirrors log_sinks.tf)
     *************************************************/
-    new CentralizedLogging("org-logging", {
+    const centralizedLogging = new CentralizedLogging("org-logging", {
         projectId: orgAuditLogs.projectId,
         orgId: cfg.orgId,
         loggingBucketOptions: {
@@ -349,6 +352,19 @@ export = async () => {
             loggingSinkFilter: "",
         },
     }, { dependsOn: [orgAuditLogs] });
+
+    // Domain restricted sharing
+    // Gap 3 fix: this policy must wait for log sinks to finish deploying.
+    // The upstream TF uses time_sleep "wait_logs_export" with create_duration = 30s
+    // and depends_on = [module.logs_export]. In Pulumi we use explicit dependsOn
+    // on the centralizedLogging resource to establish the ordering guarantee.
+    // Placed AFTER logging to avoid forward-reference issues in JS/TS.
+    if (cfg.domainsToAllow.length > 0) {
+        new DomainRestrictedSharing("domain-restricted-sharing", {
+            orgId: cfg.orgId,
+            domainsToAllow: cfg.domainsToAllow,
+        }, { dependsOn: [centralizedLogging] });
+    }
 
     /*************************************************
       SCC Notification (mirrors scc_notification.tf)

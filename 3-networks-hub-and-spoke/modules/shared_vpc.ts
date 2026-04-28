@@ -8,7 +8,7 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { Network, FirewallRules, SubnetConfig } from "@vitruviansoftware/foundation-network";
+import { Network, SubnetConfig } from "@vitruviansoftware/foundation-network";
 import { PrivateServiceConnect } from "@vitruviansoftware/foundation-private-service-connect";
 
 export interface SharedVpcArgs {
@@ -25,6 +25,10 @@ export interface SharedVpcArgs {
     secondaryRanges?: Record<string, { rangeName: string; ipCidrRange: string }[]>;
     natEnabled?: boolean;
     windowsActivationEnabled?: boolean;
+    /** Enable conditional allow-all for VPC internal traffic (TF: enable_all_vpc_internal_traffic) */
+    enableAllVpcInternalTraffic?: boolean;
+    /** Enable firewall logging (default: true) */
+    firewallEnableLogging?: boolean;
     dnsEnableInboundForwarding?: boolean;
     dnsEnableLogging?: boolean;
     pscAddress: string;
@@ -32,17 +36,93 @@ export interface SharedVpcArgs {
     netHubProjectId?: string;
     /** For spoke mode: hub network self-link */
     netHubNetworkSelfLink?: string;
-    /** Custom firewall rules */
-    firewallRules?: {
-        name: string;
-        description?: string;
-        direction: "INGRESS" | "EGRESS";
-        priority?: number;
-        ranges: string[];
-        allow?: { protocol: string; ports?: string[] | null }[];
-        deny?: { protocol: string; ports?: string[] | null }[];
-        enableLogging?: boolean;
-    }[];
+}
+
+/**
+ * Firewall rule definition matching the Go library's FirewallRule struct
+ * and the upstream TF module's rule variable type.
+ */
+interface PolicyFirewallRule {
+    priority: number;
+    direction: "INGRESS" | "EGRESS";
+    action: "allow" | "deny";
+    ruleName: string;
+    description: string;
+    enableLogging: boolean;
+    match: {
+        srcIpRanges?: string[];
+        destIpRanges?: string[];
+        layer4Configs: { ipProtocol: string; ports?: string[] }[];
+    };
+    targetSecureTags?: pulumi.Input<string>[];
+}
+
+/**
+ * Builds the standard foundation firewall rules matching the Go library's
+ * BuildFoundationRules() — the upstream TF firewall.tf rule set.
+ */
+function buildFoundationRules(
+    envCode: string,
+    enableLogging: boolean,
+    restrictedApiCidr: string,
+    subnetIPs: string[],
+    enableInternal: boolean,
+): PolicyFirewallRule[] {
+    const rules: PolicyFirewallRule[] = [
+        {
+            priority: 65530,
+            direction: "EGRESS",
+            action: "deny",
+            ruleName: `fw-${envCode}-svpc-65530-e-d-all-all-all`,
+            description: "Lower priority rule to deny all egress traffic.",
+            enableLogging,
+            match: {
+                destIpRanges: ["0.0.0.0/0"],
+                layer4Configs: [{ ipProtocol: "all" }],
+            },
+        },
+        {
+            priority: 1000,
+            direction: "EGRESS",
+            action: "allow",
+            ruleName: `fw-${envCode}-svpc-1000-e-a-allow-google-apis-all-tcp-443`,
+            description: "Lower priority rule to allow restricted google apis on TCP port 443.",
+            enableLogging,
+            match: {
+                destIpRanges: [restrictedApiCidr],
+                layer4Configs: [{ ipProtocol: "tcp", ports: ["443"] }],
+            },
+        },
+    ];
+
+    if (enableInternal) {
+        rules.push({
+            priority: 10000,
+            direction: "EGRESS",
+            action: "allow",
+            ruleName: `fw-${envCode}-svpc-10000-e-a-all-all-all`,
+            description: "Allow all egress to the provided IP range.",
+            enableLogging,
+            match: {
+                destIpRanges: subnetIPs,
+                layer4Configs: [{ ipProtocol: "all" }],
+            },
+        });
+        rules.push({
+            priority: 10001,
+            direction: "INGRESS",
+            action: "allow",
+            ruleName: `fw-${envCode}-svpc-10001-i-a-all`,
+            description: "Allow all ingress to the provided IP range.",
+            enableLogging,
+            match: {
+                srcIpRanges: subnetIPs,
+                layer4Configs: [{ ipProtocol: "all" }],
+            },
+        });
+    }
+
+    return rules;
 }
 
 export class SharedVpc extends pulumi.ComponentResource {
@@ -57,6 +137,7 @@ export class SharedVpc extends pulumi.ComponentResource {
         const modeStr = args.mode === "hub" ? "-hub" : args.mode === "spoke" ? "-spoke" : "";
         const vpcName = `${args.environmentCode}-svpc${modeStr}`;
         const networkName = `vpc-${vpcName}`;
+        const enableLogging = args.firewallEnableLogging ?? true;
 
         // Create VPC network
         this.network = new Network(`${name}-vpc`, {
@@ -67,6 +148,19 @@ export class SharedVpc extends pulumi.ComponentResource {
             subnets: args.subnets,
             secondaryRanges: args.secondaryRanges,
         }, { parent: this });
+
+        // Windows activation route (mirrors TF windows_activation_enabled)
+        if (args.windowsActivationEnabled) {
+            new gcp.compute.Route(`${name}-windows-kms-route`, {
+                name: `rt-${vpcName}-1000-all-default-windows-kms`,
+                project: args.projectId,
+                network: this.network.networkId,
+                destRange: "35.190.247.13/32",
+                nextHopGateway: "default-internet-gateway",
+                priority: 1000,
+                description: "Route through IGW to allow Windows KMS activation for GCP.",
+            }, { parent: this });
+        }
 
         this.networkName = this.network.networkName;
         this.networkSelfLink = this.network.networkSelfLink;
@@ -157,43 +251,65 @@ export class SharedVpc extends pulumi.ComponentResource {
             }, { parent: this });
         }
 
-        // Default firewall rules
-        const defaultFirewallRules = new FirewallRules(`${name}-default-fw`, {
-            projectId: args.projectId,
-            networkName: this.network.networkId,
-            rules: [
-                {
-                    name: `fw-${vpcName}-65530-e-d-all-all-all`,
-                    description: "Lower priority deny all egress",
-                    direction: "EGRESS",
-                    priority: 65530,
-                    ranges: ["0.0.0.0/0"],
-                    deny: [{ protocol: "all" }],
-                    logConfig: { metadata: "INCLUDE_ALL_METADATA" },
-                },
-                {
-                    name: `fw-${vpcName}-65531-i-d-all-all-tcp-udp`,
-                    description: "Lower priority deny all ingress",
-                    direction: "INGRESS",
-                    priority: 65531,
-                    ranges: ["0.0.0.0/0"],
-                    deny: [
-                        { protocol: "tcp" },
-                        { protocol: "udp" },
-                    ],
-                    logConfig: { metadata: "INCLUDE_ALL_METADATA" },
-                },
-                {
-                    name: `fw-${vpcName}-1000-i-a-all-all-all-rfc1918`,
-                    description: "Allow internal traffic (RFC1918)",
-                    direction: "INGRESS",
-                    priority: 1000,
-                    ranges: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
-                    allow: [{ protocol: "all" }],
-                    logConfig: { metadata: "INCLUDE_ALL_METADATA" },
-                },
-            ],
-        }, { parent: this });
+        // ================================================================
+        // Network Firewall Policy (modern — matches Go BuildFoundationRules)
+        // Replaces legacy gcp.compute.Firewall resources with the modern
+        // gcp.compute.NetworkFirewallPolicy + Association + Rule pattern.
+        // Mirrors: go/pkg/networking/firewall.go:NewNetworkFirewallPolicy
+        // ================================================================
+        const policyName = `fp-${vpcName}-firewalls`;
+        const fwPolicy = new gcp.compute.NetworkFirewallPolicy(`${name}-fw-policy`, {
+            project: args.projectId,
+            name: policyName,
+            description: `Firewall rules for VPC: ${networkName}.`,
+        }, { parent: this, dependsOn: [this.network.network] });
+
+        // Associate the policy with the VPC network
+        new gcp.compute.NetworkFirewallPolicyAssociation(`${name}-fw-assoc`, {
+            project: args.projectId,
+            firewallPolicy: fwPolicy.name,
+            attachmentTarget: pulumi.interpolate`projects/${args.projectId}/global/networks/${this.network.networkName}`,
+            name: pulumi.interpolate`${policyName}-${this.network.networkName}`,
+        }, { parent: fwPolicy });
+
+        // Build foundation rules — matches Go's BuildFoundationRules exactly
+        const subnetCidrs = args.subnets.map(s => s.subnetIp);
+        const fwRules = buildFoundationRules(
+            args.environmentCode,
+            enableLogging,
+            args.pscAddress + "/32",
+            subnetCidrs,
+            args.enableAllVpcInternalTraffic ?? false,
+        );
+
+        // Create each rule as a NetworkFirewallPolicyRule
+        for (const rule of fwRules) {
+            const matchBlock: gcp.types.input.compute.NetworkFirewallPolicyRuleMatch = {
+                layer4Configs: rule.match.layer4Configs.map(l4 => ({
+                    ipProtocol: l4.ipProtocol,
+                    ports: l4.ports,
+                })),
+            };
+
+            if (rule.direction === "EGRESS" && rule.match.destIpRanges) {
+                matchBlock.destIpRanges = rule.match.destIpRanges;
+            }
+            if (rule.direction === "INGRESS" && rule.match.srcIpRanges) {
+                matchBlock.srcIpRanges = rule.match.srcIpRanges;
+            }
+
+            new gcp.compute.NetworkFirewallPolicyRule(`${name}-fw-rule-${rule.priority}`, {
+                project: args.projectId,
+                firewallPolicy: fwPolicy.name,
+                priority: rule.priority,
+                direction: rule.direction,
+                action: rule.action,
+                ruleName: rule.ruleName,
+                description: rule.description,
+                enableLogging: rule.enableLogging,
+                match: matchBlock,
+            }, { parent: fwPolicy });
+        }
 
         this.registerOutputs({
             networkName: this.networkName,

@@ -50,6 +50,12 @@ export async function deployCloudbuild(
         },
     });
 
+    // Disable default service accounts on CI/CD project (mirrors TF default_service_account = "disable")
+    new gcp.projects.DefaultServiceAccounts("cicd-default-sa-disable", {
+        project: cicdProject.projectId,
+        action: "DISABLE",
+    });
+
     // Enable APIs on CI/CD project
     const cicdApis = [
         "serviceusage.googleapis.com",
