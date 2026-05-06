@@ -33,7 +33,7 @@
     "@vitruviansoftware/foundation-gcloud": "^0.2.0",
     "@vitruviansoftware/foundation-google-group": "^0.3.0",
     "@vitruviansoftware/foundation-hierarchical-firewall-policy": "^0.3.0",
-    "@vitruviansoftware/foundation-instance-template": "^0.3.0",
+    "@vitruviansoftware/foundation-instance-template": "^0.4.0",
     "@vitruviansoftware/foundation-kms": "^0.3.0",
     "@vitruviansoftware/foundation-log-export": "^0.2.0",
     "@vitruviansoftware/foundation-network": "^0.3.0",

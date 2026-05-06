@@ -406,5 +406,7 @@ export = async () => {
         confidential_space_project_number: confidentialSpaceProject.projectNumber,
         confidential_space_workload_sa: workloadIdentitySa.email,
         cmek_project_id: cmekProject.projectId,
+        cmek_bucket: pulumi.interpolate`${cmekProject.projectId}-cmek-bucket`,
+        cmek_keyring: cmekKeyRing.name,
     };
 };

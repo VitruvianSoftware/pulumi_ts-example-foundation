@@ -34,9 +34,12 @@ export interface EnvBaselineArgs {
 
 export interface EnvBaselineOutputs {
     envFolder: gcp.organizations.Folder;
+    envFolderId: pulumi.Output<string>;
     envKmsProjectId: pulumi.Output<string>;
+    envKmsProjectNumber: pulumi.Output<string>;
     envSecretsProjectId: pulumi.Output<string>;
     assuredWorkloadId?: pulumi.Output<string>;
+    assuredWorkloadResources?: pulumi.Output<any>;
 }
 
 export function deployEnvBaseline(args: EnvBaselineArgs): EnvBaselineOutputs {
@@ -112,6 +115,7 @@ export function deployEnvBaseline(args: EnvBaselineArgs): EnvBaselineOutputs {
     // Assured Workload (optional — FedRAMP compliance)
     // Mirrors: assured_workload.tf — google_assured_workloads_workload.workload
     let assuredWorkloadId: pulumi.Output<string> | undefined;
+    let assuredWorkloadResources: pulumi.Output<any> | undefined;
     if (args.assuredWorkloadConfiguration?.enabled) {
         const workload = new gcp.assuredworkloads.Workload(`${name}-assured-workload`, {
             organization: args.orgId,
@@ -125,12 +129,16 @@ export function deployEnvBaseline(args: EnvBaselineArgs): EnvBaselineOutputs {
             }],
         }, { dependsOn: [envFolder] });
         assuredWorkloadId = workload.id;
+        assuredWorkloadResources = workload.resources;
     }
 
     return {
         envFolder,
+        envFolderId: envFolder.id,
         envKmsProjectId: envKms.projectId,
+        envKmsProjectNumber: envKms.projectNumber,
         envSecretsProjectId: envSecrets.projectId,
         assuredWorkloadId,
+        assuredWorkloadResources,
     };
 }

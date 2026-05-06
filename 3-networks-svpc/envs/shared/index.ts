@@ -15,7 +15,7 @@ export = async () => {
     const parentFolder = config.get("parent_folder") || "";
     const parentNode = parentFolder !== "" ? `folders/${parentFolder}` : `organizations/${orgId}`;
 
-    new HierarchicalFirewallPolicy("org-firewall-policy", {
+    const fwPolicy = new HierarchicalFirewallPolicy("org-firewall-policy", {
         parentNode: parentNode,
         name: "fw-policy-foundation",
         description: "Foundation hierarchical firewall policy",
@@ -62,5 +62,7 @@ export = async () => {
         targetFolders: [networkFolderName],
     });
 
-    return {};
+    return {
+        hierarchical_fw: fwPolicy.policyId,
+    };
 };
