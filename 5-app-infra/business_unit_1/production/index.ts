@@ -124,8 +124,27 @@ export = async () => {
     });
 
     return {
+        // Standard compute instance outputs
         project_id: projectId,
         region: region,
-        instances_self_links: instance.instances.map(i => i.selfLink),
+        instances_self_links: pulumi.all(instance.instances.map(i =>
+            i.selfLink)),
+        instances_names: pulumi.all(instance.instances.map(i =>
+            i.name)),
+        instances_zones: pulumi.all(instance.instances.map(i =>
+            i.zone)),
+        instances_details: pulumi.all(instance.instances.map(i => pulumi.all([i.name, i.zone, i.selfLink]).apply(([name, zone, selfLink]) => ({ name, zone, selfLink })))),
+
+        // Confidential Space outputs
+        confidential_space_project_id: confSpaceProjectId,
+        confidential_space_project_number: confSpaceProjectNum,
+        workload_identity_pool_id: wip.workloadIdentityPoolId,
+        workload_pool_provider_id: attestationProvider.workloadIdentityPoolProviderId,
+        confidential_instances_self_links: pulumi.all(confInstance.instances.map(i =>
+            i.selfLink)),
+        confidential_instances_names: pulumi.all(confInstance.instances.map(i =>
+            i.name)),
+        confidential_instances_zones: pulumi.all(confInstance.instances.map(i =>
+            i.zone)),
     };
 };

@@ -75,8 +75,17 @@ export = async () => {
     perimeterName = vpcSc.perimeter.name;
 
     return {
+        access_context_manager_policy_id: policyId,
+        shared_vpc_host_project_id: envProjectId,
         network_name: svpc.networkName,
         network_self_link: svpc.networkSelfLink,
+        subnets_names: svpc.subnetsNames,
+        subnets_ips: svpc.subnetsIps,
+        subnets_self_links: svpc.subnetsSelfLinks,
+        subnets_secondary_ranges: svpc.subnetsSecondaryRanges,
+        access_level_name: vpcSc.accessLevel.name,
+        access_level_name_dry_run: vpcSc.accessLevelDryRun.name,
+        enforce_vpcsc: enforceVpcSc,
         service_perimeter_name: perimeterName,
     };
 };

@@ -8,7 +8,6 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import { NetworkFirewallPolicy } from "@vitruviansoftware/foundation-network-firewall-policy";
 import { Network, SubnetConfig } from "@vitruviansoftware/foundation-network";
 import { PrivateServiceConnect } from "@vitruviansoftware/foundation-private-service-connect";
 
@@ -131,6 +130,11 @@ export class SharedVpc extends pulumi.ComponentResource {
     public readonly networkSelfLink: pulumi.Output<string>;
     public readonly networkId: pulumi.Output<string>;
     public readonly network: Network;
+    public readonly subnetsNames: pulumi.Output<string[]>;
+    public readonly subnetsIps: pulumi.Output<string[]>;
+    public readonly subnetsSelfLinks: pulumi.Output<string[]>;
+    public readonly subnetsSecondaryRanges: pulumi.Output<Record<string, {rangeName: string; ipCidrRange: string}[]>>;
+    public readonly dnsPolicy: pulumi.Output<string>;
 
     constructor(name: string, args: SharedVpcArgs, opts?: pulumi.ComponentResourceOptions) {
         super("foundation:modules:SharedVpc", name, args, opts);
@@ -167,8 +171,15 @@ export class SharedVpc extends pulumi.ComponentResource {
         this.networkSelfLink = this.network.networkSelfLink;
         this.networkId = this.network.networkId;
 
+        // Subnet outputs (mirrors TF module outputs: subnets_names, subnets_ips, etc.)
+        const subnetEntries = Object.values(this.network.subnets);
+        this.subnetsNames = pulumi.all(subnetEntries.map(s => s.name)).apply(names => names);
+        this.subnetsIps = pulumi.all(subnetEntries.map(s => s.ipCidrRange)).apply(ips => ips);
+        this.subnetsSelfLinks = pulumi.all(subnetEntries.map(s => s.selfLink)).apply(links => links);
+        this.subnetsSecondaryRanges = pulumi.output(args.secondaryRanges || {});
+
         // DNS policy
-        new gcp.dns.Policy(`${name}-dns-policy`, {
+        const dnsPolicy = new gcp.dns.Policy(`${name}-dns-policy`, {
             project: args.projectId,
             name: `dp-${vpcName}-default-policy`,
             enableInboundForwarding: args.dnsEnableInboundForwarding ?? true,
@@ -177,6 +188,7 @@ export class SharedVpc extends pulumi.ComponentResource {
                 networkUrl: this.network.networkSelfLink,
             }],
         }, { parent: this });
+        this.dnsPolicy = dnsPolicy.name;
 
         // Private Google APIs DNS zones
         for (const [zoneName, dnsName] of [
@@ -259,6 +271,21 @@ export class SharedVpc extends pulumi.ComponentResource {
         // Mirrors: go/pkg/networking/firewall.go:NewNetworkFirewallPolicy
         // ================================================================
         const policyName = `fp-${vpcName}-firewalls`;
+        const fwPolicy = new gcp.compute.NetworkFirewallPolicy(`${name}-fw-policy`, {
+            project: args.projectId,
+            name: policyName,
+            description: `Firewall rules for VPC: ${networkName}.`,
+        }, { parent: this, dependsOn: [this.network.network] });
+
+        // Associate the policy with the VPC network
+        new gcp.compute.NetworkFirewallPolicyAssociation(`${name}-fw-assoc`, {
+            project: args.projectId,
+            firewallPolicy: fwPolicy.name,
+            attachmentTarget: pulumi.interpolate`projects/${args.projectId}/global/networks/${this.network.networkName}`,
+            name: pulumi.interpolate`${policyName}-${this.network.networkName}`,
+        }, { parent: fwPolicy });
+
+        // Build foundation rules — matches Go's BuildFoundationRules exactly
         const subnetCidrs = args.subnets.map(s => s.subnetIp);
         const fwRules = buildFoundationRules(
             args.environmentCode,
@@ -269,26 +296,42 @@ export class SharedVpc extends pulumi.ComponentResource {
         );
 
         // Create each rule as a NetworkFirewallPolicyRule
-        new NetworkFirewallPolicy(`${name}-fw-policy`, {
-            project: args.projectId,
-            name: policyName,
-            description: `Firewall rules for VPC: ${networkName}.`,
-            network: pulumi.interpolate`projects/${args.projectId}/global/networks/${this.network.networkName}`,
-            rules: fwRules.map(rule => ({
-                ruleName: rule.ruleName,
-                description: rule.description,
+        for (const rule of fwRules) {
+            const matchBlock: gcp.types.input.compute.NetworkFirewallPolicyRuleMatch = {
+                layer4Configs: rule.match.layer4Configs.map(l4 => ({
+                    ipProtocol: l4.ipProtocol,
+                    ports: l4.ports,
+                })),
+            };
+
+            if (rule.direction === "EGRESS" && rule.match.destIpRanges) {
+                matchBlock.destIpRanges = rule.match.destIpRanges;
+            }
+            if (rule.direction === "INGRESS" && rule.match.srcIpRanges) {
+                matchBlock.srcIpRanges = rule.match.srcIpRanges;
+            }
+
+            new gcp.compute.NetworkFirewallPolicyRule(`${name}-fw-rule-${rule.priority}`, {
+                project: args.projectId,
+                firewallPolicy: fwPolicy.name,
+                priority: rule.priority,
                 direction: rule.direction,
                 action: rule.action,
-                priority: rule.priority,
-                ranges: rule.direction === "INGRESS" ? (rule.match.srcIpRanges || []) : (rule.match.destIpRanges || []),
-                layer4Configs: rule.match.layer4Configs.map(l4 => ({ ipProtocol: l4.ipProtocol, ports: l4.ports })),
+                ruleName: rule.ruleName,
+                description: rule.description,
                 enableLogging: rule.enableLogging,
-            })),
-        }, { parent: this, dependsOn: [this.network.network] });
+                match: matchBlock,
+            }, { parent: fwPolicy });
+        }
 
         this.registerOutputs({
             networkName: this.networkName,
             networkSelfLink: this.networkSelfLink,
+            subnetsNames: this.subnetsNames,
+            subnetsIps: this.subnetsIps,
+            subnetsSelfLinks: this.subnetsSelfLinks,
+            subnetsSecondaryRanges: this.subnetsSecondaryRanges,
+            dnsPolicy: this.dnsPolicy,
         });
     }
 }
