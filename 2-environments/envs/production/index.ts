@@ -39,5 +39,6 @@ export = async () => {
         env_kms_project_number: result.envKmsProjectNumber,
         env_secrets_project_id: result.envSecretsProjectId,
         assured_workload_id: result.assuredWorkloadId,
+        assured_workload_resources: result.assuredWorkloadResources,
     };
 };

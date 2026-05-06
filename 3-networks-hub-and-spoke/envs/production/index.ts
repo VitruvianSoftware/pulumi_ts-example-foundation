@@ -72,6 +72,7 @@ export = async () => {
     return {
         access_context_manager_policy_id: policyId,
         shared_vpc_host_project_id: envProjectId,
+        network_id: spokeVpc.networkId,
         network_name: spokeVpc.networkName,
         network_self_link: spokeVpc.networkSelfLink,
         subnets_names: spokeVpc.subnetsNames,
