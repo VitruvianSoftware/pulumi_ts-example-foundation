@@ -412,8 +412,9 @@ export = async () => {
         shared_vpc_project_number: sharedVpcProject.projectNumber,
         default_region: config.get("default_region") || "us-central1",
         subnets_self_links: [peeringSubnet.selfLink],
-        restricted_enabled_apis: [],
-        vpc_service_control_perimeter_name: envRef.getOutput("service_perimeter_name") || "",
+        restricted_enabled_apis: sharedVpcProject.enabledApis,
+        vpc_service_control_perimeter_name: netRef.getOutput("service_perimeter_name"),
+        access_context_manager_policy_id: netRef.getOutput("access_context_manager_policy_id"),
         peering_complete: peeringToHost.id.apply(_ => true),
     };
 };
