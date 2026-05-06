@@ -168,6 +168,7 @@ export = async () => {
         organization_step_terraform_service_account_email: saOutputs.saEmails["org"],
         gcs_bucket_tfstate: seedBootstrap.stateBucketName,
         projects_gcs_bucket_tfstate: projectsStateBucket.name,
+        state_bucket_kms_key_id: stateBucketKmsKey,
 
         common_config: {
             org_id: cfg.orgId,

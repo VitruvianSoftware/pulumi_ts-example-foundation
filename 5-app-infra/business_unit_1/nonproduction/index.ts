@@ -187,5 +187,7 @@ export = async () => {
         confidential_instances_self_links: pulumi.all(confInstance.instances.map(i => i.selfLink)),
         confidential_instances_names: pulumi.all(confInstance.instances.map(i => i.name)),
         confidential_instances_zones: pulumi.all(confInstance.instances.map(i => i.zone)),
+        available_zones: [pulumi.interpolate`${region}-a`],
+        confidential_available_zones: [pulumi.interpolate`${region}-a`],
     };
 };

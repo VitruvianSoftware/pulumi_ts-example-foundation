@@ -408,5 +408,12 @@ export = async () => {
         cmek_project_id: cmekProject.projectId,
         cmek_bucket: pulumi.interpolate`${cmekProject.projectId}-cmek-bucket`,
         cmek_keyring: cmekKeyRing.name,
+        keys: [cmekKey.name],
+        shared_vpc_project_number: sharedVpcProject.projectNumber,
+        default_region: config.get("default_region") || "us-central1",
+        subnets_self_links: [peeringSubnet.selfLink],
+        restricted_enabled_apis: [],
+        vpc_service_control_perimeter_name: envRef.getOutput("service_perimeter_name") || "",
+        peering_complete: peeringToHost.id.apply(_ => true),
     };
 };

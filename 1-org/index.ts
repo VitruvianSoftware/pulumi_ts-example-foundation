@@ -540,5 +540,6 @@ export = async () => {
         cai_monitoring_asset_feed: caiMonitoring?.assetFeedName,
         cai_monitoring_bucket: caiMonitoring?.bucketName,
         cai_monitoring_topic: caiMonitoring?.topicName,
+        billing_sink_names: [],
     };
 };
