@@ -455,10 +455,11 @@ export = async () => {
     /*************************************************
       CAI Monitoring (was missing — mirrors cai_monitoring.go)
     *************************************************/
+    let caiMonitoring: CAIMonitoring | undefined;
     if (cfg.enableCaiMonitoring) {
         const builderSAEmail = pulumi.interpolate`projects/${sccNotifications.projectId}/serviceAccounts/cai-monitoring-builder@${sccNotifications.projectId}.iam.gserviceaccount.com`;
 
-        new CAIMonitoring("cai-monitoring", {
+        caiMonitoring = new CAIMonitoring("cai-monitoring", {
             orgId: cfg.orgId,
             projectId: sccNotifications.projectId,
             location: cfg.defaultRegion,
@@ -527,5 +528,15 @@ export = async () => {
             key_id: tagKey.id,
             values: Object.fromEntries(Object.entries(tagValues).map(([k, v]) => [k, v.id])),
         },
+        // Centralized Logging exports (mirrors Go foundation + TF outputs.tf)
+        logs_export_storage_bucket_name: centralizedLogging.storageBucketName,
+        logs_export_pubsub_topic: centralizedLogging.pubsubTopicName,
+        logs_export_project_logbucket_name: centralizedLogging.logBucketName,
+        logs_export_project_linked_dataset_name: centralizedLogging.linkedDatasetName,
+        // CAI Monitoring exports (mirrors Go foundation + TF outputs.tf)
+        cai_monitoring_artifact_registry: caiMonitoring?.artifactRegistryName,
+        cai_monitoring_asset_feed: caiMonitoring?.assetFeedName,
+        cai_monitoring_bucket: caiMonitoring?.bucketName,
+        cai_monitoring_topic: caiMonitoring?.topicName,
     };
 };
