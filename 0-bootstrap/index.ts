@@ -26,6 +26,7 @@ import { loadConfig, BootstrapConfig } from "./config";
 import { deployGroups } from "./groups";
 import { deployServiceAccounts, GranularSAs } from "./sa";
 import { deployCloudbuild } from "./build_cb";
+import { Bootstrap } from "@vitruviansoftware/foundation-bootstrap";
 
 export = async () => {
     const cfg = loadConfig(new pulumi.Config());
@@ -47,20 +48,18 @@ export = async () => {
     /*************************************************
       Seed Bootstrap Project (mirrors main.tf module "seed_bootstrap")
     *************************************************/
-    const seedSuffix = new random.RandomString("seed-suffix", {
-        length: 4,
-        special: false,
-        upper: false,
-    });
-
-    const seedProject = new gcp.organizations.Project("seed-project", {
-        projectId: pulumi.interpolate`${cfg.projectPrefix}-b-seed-${seedSuffix.result}`,
-        name: pulumi.interpolate`${cfg.projectPrefix}-b-seed-${seedSuffix.result}`,
+    const seedBootstrap = new Bootstrap("seed_bootstrap", {
+        orgId: cfg.orgId,
         folderId: bootstrapFolder.name,
         billingAccount: cfg.billingAccount,
-        deletionPolicy: cfg.projectDeletionPolicy,
-        autoCreateNetwork: false,
-        labels: {
+        projectPrefix: cfg.projectPrefix,
+        defaultRegion: cfg.defaultRegion,
+        defaultRegionKms: cfg.defaultRegionKms,
+        defaultRegionGcs: cfg.defaultRegionGcs,
+        randomSuffix: true,
+        encryptStateBucket: true,
+        bucketForceDestroy: cfg.bucketForceDestroy,
+        projectLabels: {
             environment: "bootstrap",
             application_name: "seed-bootstrap",
             billing_code: "1234",
@@ -70,91 +69,39 @@ export = async () => {
             env_code: "b",
             vpc: "none",
         },
-    }, { dependsOn: groupOutputs.dependsOn, protect: true });
+        activateApis: [
+            "serviceusage.googleapis.com",
+            "servicenetworking.googleapis.com",
+            "compute.googleapis.com",
+            "logging.googleapis.com",
+            "bigquery.googleapis.com",
+            "cloudresourcemanager.googleapis.com",
+            "cloudbilling.googleapis.com",
+            "cloudbuild.googleapis.com",
+            "iam.googleapis.com",
+            "admin.googleapis.com",
+            "appengine.googleapis.com",
+            "storage-api.googleapis.com",
+            "monitoring.googleapis.com",
+            "pubsub.googleapis.com",
+            "securitycenter.googleapis.com",
+            "accesscontextmanager.googleapis.com",
+            "billingbudgets.googleapis.com",
+            "essentialcontacts.googleapis.com",
+            "assuredworkloads.googleapis.com",
+            "cloudasset.googleapis.com",
+        ],
+        bucketPrefix: cfg.bucketPrefix,
+        stateBucketIamMembers: [],
+    }, { dependsOn: groupOutputs.dependsOn });
 
-    // Disable default service accounts on seed project (mirrors TF default_service_account = "disable")
-    new gcp.projects.DefaultServiceAccounts("seed-default-sa-disable", {
-        project: seedProject.projectId,
-        action: "DISABLE",
-    });
-
-    // Enable APIs on seed project
-    const seedApis = [
-        "serviceusage.googleapis.com",
-        "servicenetworking.googleapis.com",
-        "cloudkms.googleapis.com",
-        "compute.googleapis.com",
-        "logging.googleapis.com",
-        "bigquery.googleapis.com",
-        "cloudresourcemanager.googleapis.com",
-        "cloudbilling.googleapis.com",
-        "cloudbuild.googleapis.com",
-        "iam.googleapis.com",
-        "admin.googleapis.com",
-        "appengine.googleapis.com",
-        "storage-api.googleapis.com",
-        "monitoring.googleapis.com",
-        "pubsub.googleapis.com",
-        "securitycenter.googleapis.com",
-        "accesscontextmanager.googleapis.com",
-        "billingbudgets.googleapis.com",
-        "essentialcontacts.googleapis.com",
-        "assuredworkloads.googleapis.com",
-        "cloudasset.googleapis.com",
-    ];
-
-    const seedServices: gcp.projects.Service[] = [];
-    for (const api of seedApis) {
-        seedServices.push(new gcp.projects.Service(`seed-api-${api.replace(/\./g, "-")}`, {
-            project: seedProject.projectId,
-            service: api,
-            disableOnDestroy: false,
-        }, { parent: seedProject }));
-    }
-
-    const kmsKeyring = new gcp.kms.KeyRing("seed-keyring", {
-        name: `${cfg.projectPrefix}-keyring`,
-        project: seedProject.projectId,
-        location: cfg.defaultRegionKms,
-    }, { dependsOn: seedServices });
-
-    const kmsKey = new gcp.kms.CryptoKey("seed-key", {
-        name: `${cfg.projectPrefix}-key`,
-        keyRing: kmsKeyring.id,
-        rotationPeriod: "7776000s", // 90 days
-        versionTemplate: {
-            algorithm: "GOOGLE_SYMMETRIC_ENCRYPTION",
-            protectionLevel: cfg.kmsKeyProtectionLevel,
-        },
-    }, { protect: !cfg.bucketTfStateKmsForceDestroy });
-
-    const stateBucketKmsKey = pulumi.interpolate`projects/${seedProject.projectId}/locations/${cfg.defaultRegionKms}/keyRings/${cfg.projectPrefix}-keyring/cryptoKeys/${cfg.projectPrefix}-key`;
-
-    const storageSa = gcp.storage.getProjectServiceAccountOutput({
-        project: seedProject.projectId,
-    });
-
-    const kmsBinding = new gcp.kms.CryptoKeyIAMMember("seed-kms-sa", {
-        cryptoKeyId: kmsKey.id,
-        role: "roles/cloudkms.cryptoKeyEncrypterDecrypter",
-        member: pulumi.interpolate`serviceAccount:${storageSa.emailAddress}`,
-    });
-
-    // State bucket for Terraform/Pulumi state
-    const stateBucket = new gcp.storage.Bucket("seed-state-bucket", {
-        name: pulumi.interpolate`${cfg.bucketPrefix}-${cfg.projectPrefix}-b-seed-tfstate-${seedSuffix.result}`,
-        project: seedProject.projectId,
-        location: cfg.defaultRegionGcs,
-        forceDestroy: cfg.bucketForceDestroy,
-        uniformBucketLevelAccess: true,
-        versioning: { enabled: true },
-        encryption: { defaultKmsKeyName: kmsKey.id },
-    }, { dependsOn: [kmsBinding, ...seedServices] });
+    const seedProject = seedBootstrap.seedProject.project;
+    const stateBucketKmsKey = seedBootstrap.kmsKeyId as pulumi.Output<string>;
 
     /*************************************************
       CI/CD Project and Cloud Build (mirrors build_cb.tf)
     *************************************************/
-    const cbOutputs = await deployCloudbuild(cfg, bootstrapFolder, seedProject, stateBucket, stateBucketKmsKey);
+    const cbOutputs = await deployCloudbuild(cfg, bootstrapFolder, seedProject, seedBootstrap.stateBucketName, stateBucketKmsKey);
 
     /*************************************************
       Service Accounts and IAM (mirrors sa.tf)
@@ -171,8 +118,8 @@ export = async () => {
         forceDestroy: cfg.bucketForceDestroy,
         uniformBucketLevelAccess: true,
         versioning: { enabled: true },
-        encryption: { defaultKmsKeyName: kmsKey.id },
-    }, { dependsOn: [stateBucket, kmsBinding] });
+        encryption: { defaultKmsKeyName: stateBucketKmsKey },
+    }, { dependsOn: [seedBootstrap] });
 
     /*************************************************
       Org admins IAM at org level
@@ -219,7 +166,7 @@ export = async () => {
         networks_step_terraform_service_account_email: saOutputs.saEmails["net"],
         environment_step_terraform_service_account_email: saOutputs.saEmails["env"],
         organization_step_terraform_service_account_email: saOutputs.saEmails["org"],
-        gcs_bucket_tfstate: stateBucket.name,
+        gcs_bucket_tfstate: seedBootstrap.stateBucketName,
         projects_gcs_bucket_tfstate: projectsStateBucket.name,
 
         common_config: {

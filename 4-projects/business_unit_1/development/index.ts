@@ -1,10 +1,7 @@
-/**
- * 4-projects/business_unit_1/development/index.ts
- * Mirrors: 4-projects/business_unit_1/development/main.tf
- */
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
+import { NetworkFirewallPolicy } from "@vitruviansoftware/foundation-network-firewall-policy";
 import { deploySingleProject } from "../../modules/single_project";
 
 export = async () => {
@@ -214,131 +211,89 @@ export = async () => {
     // NetworkFirewallPolicy + rules. Mirrors Go peering.go:168-176.
     // ================================================================
     const peeringPolicyName = `fp-${envCode}-peering-project-firewalls`;
-    const peeringFwPolicy = new gcp.compute.NetworkFirewallPolicy("peering-fw-policy", {
+
+    const peeringRules: any[] = [
+        {
+            ruleName: `fw-${envCode}-peering-base-65530-e-d-all-all-tcp-udp`,
+            description: "Lower priority rule to deny all egress traffic.",
+            direction: "EGRESS",
+            action: "deny",
+            priority: 65530,
+            ranges: ["0.0.0.0/0"],
+            layer4Configs: [{ ipProtocol: "tcp" }, { ipProtocol: "udp" }],
+            enableLogging: firewallEnableLogging,
+        },
+        {
+            ruleName: `fw-${envCode}-peering-base-10000-e-a-allow-google-apis-all-tcp-443`,
+            description: "Lower priority rule to allow private google apis on TCP port 443.",
+            direction: "EGRESS",
+            action: "allow",
+            priority: 10000,
+            ranges: ["199.36.153.8/30"],
+            layer4Configs: [{ ipProtocol: "tcp", ports: ["443"] }],
+            enableLogging: firewallEnableLogging,
+        }
+    ];
+
+    if (peeringIapFwEnabled && sshTagValueId) {
+        peeringRules.push({
+            ruleName: `fw-${envCode}-peering-base-1000-i-a-all-allow-iap-ssh-tcp-22`,
+            description: "Allow SSH via IAP for tagged instances.",
+            direction: "INGRESS",
+            action: "allow",
+            priority: 1000,
+            ranges: ["35.235.240.0/20"],
+            layer4Configs: [{ ipProtocol: "tcp", ports: ["22"] }],
+            targetSecureTags: [{ name: sshTagValueId }],
+            enableLogging: true,
+        });
+        peeringRules.push({
+            ruleName: `fw-${envCode}-peering-base-1001-i-a-all-allow-iap-rdp-tcp-3389`,
+            description: "Allow RDP via IAP for tagged instances.",
+            direction: "INGRESS",
+            action: "allow",
+            priority: 1001,
+            ranges: ["35.235.240.0/20"],
+            layer4Configs: [{ ipProtocol: "tcp", ports: ["3389"] }],
+            targetSecureTags: [{ name: rdpTagValueId! }],
+            enableLogging: true,
+        });
+    }
+
+    if (windowsActivationEnabled) {
+        peeringRules.push({
+            ruleName: `fw-${envCode}-peering-base-0-e-a-allow-win-activation-all-tcp-1688`,
+            description: "Allow access to kms.windows.googlecloud.com for Windows license activation.",
+            direction: "EGRESS",
+            action: "allow",
+            priority: 0,
+            ranges: ["35.190.247.13/32"],
+            layer4Configs: [{ ipProtocol: "tcp", ports: ["1688"] }],
+            enableLogging: firewallEnableLogging,
+        });
+    }
+
+    if (optionalFwRulesEnabled) {
+        peeringRules.push({
+            ruleName: `fw-${envCode}-peering-base-1002-i-a-all-allow-lb-tcp-80-8080-443`,
+            description: "Allow traffic for Internal & Global load balancing health check and load balancing IP ranges.",
+            direction: "INGRESS",
+            action: "allow",
+            priority: 1002,
+            ranges: ["35.191.0.0/16", "130.211.0.0/22", "209.85.152.0/22", "209.85.204.0/22"],
+            layer4Configs: [{ ipProtocol: "tcp", ports: ["80", "8080", "443"] }],
+            enableLogging: firewallEnableLogging,
+        });
+    }
+
+    new NetworkFirewallPolicy("peering-fw-policy", {
         project: peeringProject.projectId,
         name: peeringPolicyName,
         description: `Firewall rules for Peering Network: ${vpcName}.`,
+        network: pulumi.interpolate`projects/${peeringProject.projectId}/global/networks/${peeringNetwork.name}`,
+        rules: peeringRules,
     }, { dependsOn: [peeringNetwork] });
 
-    // Associate with the peering VPC
-    new gcp.compute.NetworkFirewallPolicyAssociation("peering-fw-assoc", {
-        project: peeringProject.projectId,
-        firewallPolicy: peeringFwPolicy.name,
-        attachmentTarget: pulumi.interpolate`projects/${peeringProject.projectId}/global/networks/${peeringNetwork.name}`,
-        name: pulumi.interpolate`${peeringPolicyName}-${peeringNetwork.name}`,
-    }, { parent: peeringFwPolicy });
-
-    // Rule: Deny all egress TCP/UDP (priority 65530)
-    new gcp.compute.NetworkFirewallPolicyRule("peering-fw-rule-65530", {
-        project: peeringProject.projectId,
-        firewallPolicy: peeringFwPolicy.name,
-        priority: 65530,
-        direction: "EGRESS",
-        action: "deny",
-        ruleName: `fw-${envCode}-peering-base-65530-e-d-all-all-tcp-udp`,
-        description: "Lower priority rule to deny all egress traffic.",
-        enableLogging: firewallEnableLogging,
-        match: {
-            destIpRanges: ["0.0.0.0/0"],
-            layer4Configs: [
-                { ipProtocol: "tcp" },
-                { ipProtocol: "udp" },
-            ],
-        },
-    }, { parent: peeringFwPolicy });
-
-    // Rule: Allow Google Private APIs egress (priority 10000)
-    new gcp.compute.NetworkFirewallPolicyRule("peering-fw-rule-10000", {
-        project: peeringProject.projectId,
-        firewallPolicy: peeringFwPolicy.name,
-        priority: 10000,
-        direction: "EGRESS",
-        action: "allow",
-        ruleName: `fw-${envCode}-peering-base-10000-e-a-allow-google-apis-all-tcp-443`,
-        description: "Lower priority rule to allow private google apis on TCP port 443.",
-        enableLogging: firewallEnableLogging,
-        match: {
-            destIpRanges: ["199.36.153.8/30"],
-            layer4Configs: [{ ipProtocol: "tcp", ports: ["443"] }],
-        },
-    }, { parent: peeringFwPolicy });
-
-    // Rule: IAP SSH (priority 1000) — conditional on peeringIapFwEnabled
-    if (peeringIapFwEnabled && sshTagValueId) {
-        new gcp.compute.NetworkFirewallPolicyRule("peering-fw-rule-1000-iap-ssh", {
-            project: peeringProject.projectId,
-            firewallPolicy: peeringFwPolicy.name,
-            priority: 1000,
-            direction: "INGRESS",
-            action: "allow",
-            ruleName: `fw-${envCode}-peering-base-1000-i-a-all-allow-iap-ssh-tcp-22`,
-            description: "Allow SSH via IAP for tagged instances.",
-            enableLogging: true,
-            targetSecureTags: [{ name: sshTagValueId }],
-            match: {
-                srcIpRanges: ["35.235.240.0/20"],
-                layer4Configs: [{ ipProtocol: "tcp", ports: ["22"] }],
-            },
-        }, { parent: peeringFwPolicy });
-
-        // Rule: IAP RDP (priority 1001)
-        new gcp.compute.NetworkFirewallPolicyRule("peering-fw-rule-1001-iap-rdp", {
-            project: peeringProject.projectId,
-            firewallPolicy: peeringFwPolicy.name,
-            priority: 1001,
-            direction: "INGRESS",
-            action: "allow",
-            ruleName: `fw-${envCode}-peering-base-1001-i-a-all-allow-iap-rdp-tcp-3389`,
-            description: "Allow RDP via IAP for tagged instances.",
-            enableLogging: true,
-            targetSecureTags: [{ name: rdpTagValueId! }],
-            match: {
-                srcIpRanges: ["35.235.240.0/20"],
-                layer4Configs: [{ ipProtocol: "tcp", ports: ["3389"] }],
-            },
-        }, { parent: peeringFwPolicy });
-    }
-
-    // Rule: Windows KMS activation (priority 0) — conditional
-    if (windowsActivationEnabled) {
-        new gcp.compute.NetworkFirewallPolicyRule("peering-fw-rule-0-win-kms", {
-            project: peeringProject.projectId,
-            firewallPolicy: peeringFwPolicy.name,
-            priority: 0,
-            direction: "EGRESS",
-            action: "allow",
-            ruleName: `fw-${envCode}-peering-base-0-e-a-allow-win-activation-all-tcp-1688`,
-            description: "Allow access to kms.windows.googlecloud.com for Windows license activation.",
-            enableLogging: firewallEnableLogging,
-            match: {
-                destIpRanges: ["35.190.247.13/32"],
-                layer4Configs: [{ ipProtocol: "tcp", ports: ["1688"] }],
-            },
-        }, { parent: peeringFwPolicy });
-    }
-
-    // Rule: Optional Load Balancer health checks (priority 1002) — conditional
-    if (optionalFwRulesEnabled) {
-        new gcp.compute.NetworkFirewallPolicyRule("peering-fw-rule-1002-lb-hc", {
-            project: peeringProject.projectId,
-            firewallPolicy: peeringFwPolicy.name,
-            priority: 1002,
-            direction: "INGRESS",
-            action: "allow",
-            ruleName: `fw-${envCode}-peering-base-1002-i-a-all-allow-lb-tcp-80-8080-443`,
-            description: "Allow traffic for Internal & Global load balancing health check and load balancing IP ranges.",
-            enableLogging: firewallEnableLogging,
-            match: {
-                srcIpRanges: [
-                    "35.191.0.0/16",
-                    "130.211.0.0/22",
-                    "209.85.152.0/22",
-                    "209.85.204.0/22",
-                ],
-                layer4Configs: [{ ipProtocol: "tcp", ports: ["80", "8080", "443"] }],
-            },
-        }, { parent: peeringFwPolicy });
-    }
 
     // Network SVPC Reference (for VPC-SC perimeter)
     const perimeterName = netRef.getOutput("service_perimeter_name") as pulumi.Output<string>;

@@ -19,7 +19,7 @@ export async function deployCloudbuild(
     cfg: BootstrapConfig,
     bootstrapFolder: gcp.organizations.Folder,
     seedProject: gcp.organizations.Project,
-    stateBucket: gcp.storage.Bucket,
+    stateBucketName: pulumi.Output<string>,
     stateBucketKmsKey: pulumi.Output<string>,
 ): Promise<CloudbuildOutputs> {
 

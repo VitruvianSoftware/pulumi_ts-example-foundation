@@ -1,10 +1,7 @@
-/**
- * 4-projects/business_unit_1/nonproduction/index.ts
- * Mirrors: 4-projects/business_unit_1/nonproduction/main.tf
- */
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
+import { NetworkFirewallPolicy } from "@vitruviansoftware/foundation-network-firewall-policy";
 import { deploySingleProject } from "../../modules/single_project";
 
 export = async () => {
