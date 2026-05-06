@@ -52,8 +52,35 @@ export = async () => {
         ],
     });
 
+
+    // VPC Service Controls (mirrors TF base_env/service_control.tf)
+    const policyId = orgRef.getOutput("access_context_manager_policy_id") as pulumi.Output<string>;
+    const vpcScMembers = config.getObject<string[]>("vpc_sc_members") || [];
+    const enforceVpcSc = config.getBoolean("enforce_vpc_sc") ?? true;
+
+    const { VpcServiceControls, DEFAULT_RESTRICTED_SERVICES } = await import("@vitruviansoftware/foundation-vpc-service-controls");
+    const vpcSc = new VpcServiceControls("vpc-sc-perimeter", {
+        policyId: policyId,
+        prefix: `p_spoke`,
+        members: vpcScMembers,
+        membersDryRun: vpcScMembers,
+        projectNumbers: [envProjectId],
+        restrictedServices: DEFAULT_RESTRICTED_SERVICES,
+        enforce: enforceVpcSc,
+    });
+
     return {
+        access_context_manager_policy_id: policyId,
+        shared_vpc_host_project_id: envProjectId,
         network_name: spokeVpc.networkName,
         network_self_link: spokeVpc.networkSelfLink,
+        subnets_names: spokeVpc.subnetsNames,
+        subnets_ips: spokeVpc.subnetsIps,
+        subnets_self_links: spokeVpc.subnetsSelfLinks,
+        subnets_secondary_ranges: spokeVpc.subnetsSecondaryRanges,
+        access_level_name: vpcSc.accessLevel.name,
+        access_level_name_dry_run: vpcSc.accessLevelDryRun.name,
+        enforce_vpcsc: enforceVpcSc,
+        service_perimeter_name: vpcSc.perimeter.name,
     };
 };

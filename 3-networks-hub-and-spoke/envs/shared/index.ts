@@ -104,7 +104,9 @@ export = async () => {
     });
 
     return {
+        shared_vpc_host_project_id: netHubProjectId,
         network_name: hubVpc.networkName,
         network_self_link: hubVpc.networkSelfLink,
+        dns_policy: hubVpc.dnsPolicy,
     };
 };

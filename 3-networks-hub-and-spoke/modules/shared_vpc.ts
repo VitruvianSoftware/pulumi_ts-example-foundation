@@ -130,6 +130,11 @@ export class SharedVpc extends pulumi.ComponentResource {
     public readonly networkSelfLink: pulumi.Output<string>;
     public readonly networkId: pulumi.Output<string>;
     public readonly network: Network;
+    public readonly subnetsNames: pulumi.Output<string[]>;
+    public readonly subnetsIps: pulumi.Output<string[]>;
+    public readonly subnetsSelfLinks: pulumi.Output<string[]>;
+    public readonly subnetsSecondaryRanges: pulumi.Output<Record<string, {rangeName: string; ipCidrRange: string}[]>>;
+    public readonly dnsPolicy: pulumi.Output<string>;
 
     constructor(name: string, args: SharedVpcArgs, opts?: pulumi.ComponentResourceOptions) {
         super("foundation:modules:SharedVpc", name, args, opts);
@@ -166,8 +171,15 @@ export class SharedVpc extends pulumi.ComponentResource {
         this.networkSelfLink = this.network.networkSelfLink;
         this.networkId = this.network.networkId;
 
+        // Subnet outputs (mirrors TF module outputs: subnets_names, subnets_ips, etc.)
+        const subnetEntries = Object.values(this.network.subnets);
+        this.subnetsNames = pulumi.all(subnetEntries.map(s => s.name)).apply(names => names);
+        this.subnetsIps = pulumi.all(subnetEntries.map(s => s.ipCidrRange)).apply(ips => ips);
+        this.subnetsSelfLinks = pulumi.all(subnetEntries.map(s => s.selfLink)).apply(links => links);
+        this.subnetsSecondaryRanges = pulumi.output(args.secondaryRanges || {});
+
         // DNS policy
-        new gcp.dns.Policy(`${name}-dns-policy`, {
+        const dnsPolicy = new gcp.dns.Policy(`${name}-dns-policy`, {
             project: args.projectId,
             name: `dp-${vpcName}-default-policy`,
             enableInboundForwarding: args.dnsEnableInboundForwarding ?? true,
@@ -176,6 +188,7 @@ export class SharedVpc extends pulumi.ComponentResource {
                 networkUrl: this.network.networkSelfLink,
             }],
         }, { parent: this });
+        this.dnsPolicy = dnsPolicy.name;
 
         // Private Google APIs DNS zones
         for (const [zoneName, dnsName] of [
@@ -314,6 +327,11 @@ export class SharedVpc extends pulumi.ComponentResource {
         this.registerOutputs({
             networkName: this.networkName,
             networkSelfLink: this.networkSelfLink,
+            subnetsNames: this.subnetsNames,
+            subnetsIps: this.subnetsIps,
+            subnetsSelfLinks: this.subnetsSelfLinks,
+            subnetsSecondaryRanges: this.subnetsSecondaryRanges,
+            dnsPolicy: this.dnsPolicy,
         });
     }
 }
