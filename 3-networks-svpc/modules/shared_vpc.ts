@@ -8,6 +8,7 @@
 
 import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
+import { NetworkFirewallPolicy } from "@vitruviansoftware/foundation-network-firewall-policy";
 import { Network, SubnetConfig } from "@vitruviansoftware/foundation-network";
 import { PrivateServiceConnect } from "@vitruviansoftware/foundation-private-service-connect";
 
@@ -258,21 +259,6 @@ export class SharedVpc extends pulumi.ComponentResource {
         // Mirrors: go/pkg/networking/firewall.go:NewNetworkFirewallPolicy
         // ================================================================
         const policyName = `fp-${vpcName}-firewalls`;
-        const fwPolicy = new gcp.compute.NetworkFirewallPolicy(`${name}-fw-policy`, {
-            project: args.projectId,
-            name: policyName,
-            description: `Firewall rules for VPC: ${networkName}.`,
-        }, { parent: this, dependsOn: [this.network.network] });
-
-        // Associate the policy with the VPC network
-        new gcp.compute.NetworkFirewallPolicyAssociation(`${name}-fw-assoc`, {
-            project: args.projectId,
-            firewallPolicy: fwPolicy.name,
-            attachmentTarget: pulumi.interpolate`projects/${args.projectId}/global/networks/${this.network.networkName}`,
-            name: pulumi.interpolate`${policyName}-${this.network.networkName}`,
-        }, { parent: fwPolicy });
-
-        // Build foundation rules — matches Go's BuildFoundationRules exactly
         const subnetCidrs = args.subnets.map(s => s.subnetIp);
         const fwRules = buildFoundationRules(
             args.environmentCode,
@@ -283,33 +269,22 @@ export class SharedVpc extends pulumi.ComponentResource {
         );
 
         // Create each rule as a NetworkFirewallPolicyRule
-        for (const rule of fwRules) {
-            const matchBlock: gcp.types.input.compute.NetworkFirewallPolicyRuleMatch = {
-                layer4Configs: rule.match.layer4Configs.map(l4 => ({
-                    ipProtocol: l4.ipProtocol,
-                    ports: l4.ports,
-                })),
-            };
-
-            if (rule.direction === "EGRESS" && rule.match.destIpRanges) {
-                matchBlock.destIpRanges = rule.match.destIpRanges;
-            }
-            if (rule.direction === "INGRESS" && rule.match.srcIpRanges) {
-                matchBlock.srcIpRanges = rule.match.srcIpRanges;
-            }
-
-            new gcp.compute.NetworkFirewallPolicyRule(`${name}-fw-rule-${rule.priority}`, {
-                project: args.projectId,
-                firewallPolicy: fwPolicy.name,
-                priority: rule.priority,
-                direction: rule.direction,
-                action: rule.action,
+        new NetworkFirewallPolicy(`${name}-fw-policy`, {
+            project: args.projectId,
+            name: policyName,
+            description: `Firewall rules for VPC: ${networkName}.`,
+            network: pulumi.interpolate`projects/${args.projectId}/global/networks/${this.network.networkName}`,
+            rules: fwRules.map(rule => ({
                 ruleName: rule.ruleName,
                 description: rule.description,
+                direction: rule.direction,
+                action: rule.action,
+                priority: rule.priority,
+                ranges: rule.direction === "INGRESS" ? (rule.match.srcIpRanges || []) : (rule.match.destIpRanges || []),
+                layer4Configs: rule.match.layer4Configs.map(l4 => ({ ipProtocol: l4.ipProtocol, ports: l4.ports })),
                 enableLogging: rule.enableLogging,
-                match: matchBlock,
-            }, { parent: fwPolicy });
-        }
+            })),
+        }, { parent: this, dependsOn: [this.network.network] });
 
         this.registerOutputs({
             networkName: this.networkName,
