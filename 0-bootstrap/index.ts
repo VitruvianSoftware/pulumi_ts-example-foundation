@@ -197,8 +197,9 @@ export = async () => {
             ? groupOutputs.optionalGroupIds
             : cfg.groups.optionalGroups,
 
-        // outputs_cb.tf
         cloudbuild_project_id: cbOutputs.cicdProjectId,
         cloud_build_private_worker_pool_id: cbOutputs.privateWorkerPoolId,
+        wif_pool_name: "",
+        wif_provider_name: "",
     };
 };

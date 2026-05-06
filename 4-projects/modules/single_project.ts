@@ -41,11 +41,15 @@ export interface SingleProjectArgs {
 export interface SingleProjectOutputs {
     projectId: pulumi.Output<string>;
     projectNumber: pulumi.Output<string>;
+    enabledApis: string[];
 }
 
 export function deploySingleProject(name: string, args: SingleProjectArgs): SingleProjectOutputs {
     const envCode = args.environment.charAt(0);
     const projectName = `${args.projectPrefix}-${envCode}-${args.businessCode}-${args.projectSuffix}`;
+
+    // Mirrors TF: distinct(concat(var.activate_apis, ["billingbudgets.googleapis.com"]))
+    const enabledApis = [...new Set([...(args.activateApis ?? []), "billingbudgets.googleapis.com"])];
 
     const project = new ProjectFactory(name, {
         name: projectName,
@@ -53,7 +57,7 @@ export function deploySingleProject(name: string, args: SingleProjectArgs): Sing
         billingAccount: args.billingAccount,
         folderId: args.folderId,
         deletionPolicy: args.projectDeletionPolicy ?? "PREVENT",
-        activateApis: [...new Set([...(args.activateApis ?? []), "billingbudgets.googleapis.com"])],
+        activateApis: enabledApis,
         labels: {
             environment: args.environment,
             application_name: args.applicationName,
@@ -97,5 +101,6 @@ export function deploySingleProject(name: string, args: SingleProjectArgs): Sing
     return {
         projectId: project.projectId,
         projectNumber: project.projectNumber,
+        enabledApis: enabledApis,
     };
 }
