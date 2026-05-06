@@ -77,6 +77,7 @@ export = async () => {
     return {
         access_context_manager_policy_id: policyId,
         shared_vpc_host_project_id: envProjectId,
+        network_id: svpc.networkId,
         network_name: svpc.networkName,
         network_self_link: svpc.networkSelfLink,
         subnets_names: svpc.subnetsNames,

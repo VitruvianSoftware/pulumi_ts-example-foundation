@@ -34,7 +34,9 @@ export interface EnvBaselineArgs {
 
 export interface EnvBaselineOutputs {
     envFolder: gcp.organizations.Folder;
+    envFolderId: pulumi.Output<string>;
     envKmsProjectId: pulumi.Output<string>;
+    envKmsProjectNumber: pulumi.Output<string>;
     envSecretsProjectId: pulumi.Output<string>;
     assuredWorkloadId?: pulumi.Output<string>;
 }
@@ -129,7 +131,9 @@ export function deployEnvBaseline(args: EnvBaselineArgs): EnvBaselineOutputs {
 
     return {
         envFolder,
+        envFolderId: envFolder.id,
         envKmsProjectId: envKms.projectId,
+        envKmsProjectNumber: envKms.projectNumber,
         envSecretsProjectId: envSecrets.projectId,
         assuredWorkloadId,
     };

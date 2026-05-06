@@ -19,7 +19,6 @@ export = async () => {
     const hostname = config.get("hostname") || "example-app";
 
     // Service account for the compute instance
-    // createIgnoreAlreadyExists matches Go foundation's 5-app-infra/env_base.go
     const sa = new gcp.serviceaccount.Account("example-app-sa", {
         project: projectId,
         accountId: "sa-example-app",
@@ -55,6 +54,49 @@ export = async () => {
         instanceTemplate: template.templateSelfLink,
         subnetwork: `projects/${config.get("shared_vpc_host_project") || ""}/regions/${region}/subnetworks/sb-n-svpc-${region}`,
         numInstances: numInstances,
+    });
+
+    // ====================================================================
+    // Peering Compute Instance
+    // ====================================================================
+    const peeringProjectId = projectRef.getOutput("peering_project_id") as pulumi.Output<string>;
+    const peeringSubnet = projectRef.getOutput("peering_subnetwork_self_link") as pulumi.Output<string>;
+    const iapFirewallTags = projectRef.getOutput("iap_firewall_tags") as pulumi.Output<Record<string, string>>;
+
+    const peeringSa = new gcp.serviceaccount.Account("peering-app-sa", {
+        project: peeringProjectId,
+        accountId: "sa-peering-app",
+        displayName: "Peering app service Account",
+        createIgnoreAlreadyExists: true,
+    });
+
+    const peeringTemplate = new InstanceTemplate("peering-template", {
+        projectId: peeringProjectId,
+        namePrefix: "peering-app",
+        machineType: machineType,
+        region: region,
+        sourceImageFamily: "debian-12",
+        sourceImageProject: "debian-cloud",
+        diskSizeGb: 100,
+        diskType: "pd-ssd",
+        subnetwork: peeringSubnet,
+        serviceAccount: {
+            email: peeringSa.email,
+            scopes: ["compute-rw"],
+        },
+        metadata: {
+            "block-project-ssh-keys": "true",
+        },
+    });
+
+    const peeringInstance = new ComputeInstance("peering-instance", {
+        projectId: peeringProjectId,
+        zone: `${region}-a`,
+        instanceName: "peering-app",
+        instanceTemplate: peeringTemplate.templateSelfLink,
+        subnetwork: peeringSubnet,
+        numInstances: 1,
+        resourceManagerTags: iapFirewallTags,
     });
 
     // ====================================================================
@@ -127,24 +169,23 @@ export = async () => {
         // Standard compute instance outputs
         project_id: projectId,
         region: region,
-        instances_self_links: pulumi.all(instance.instances.map(i =>
-            i.selfLink)),
-        instances_names: pulumi.all(instance.instances.map(i =>
-            i.name)),
-        instances_zones: pulumi.all(instance.instances.map(i =>
-            i.zone)),
+        instances_self_links: pulumi.all(instance.instances.map(i => i.selfLink)),
+        instances_names: pulumi.all(instance.instances.map(i => i.name)),
+        instances_zones: pulumi.all(instance.instances.map(i => i.zone)),
         instances_details: pulumi.all(instance.instances.map(i => pulumi.all([i.name, i.zone, i.selfLink]).apply(([name, zone, selfLink]) => ({ name, zone, selfLink })))),
+
+        // Peering instances outputs
+        peering_instances_self_links: pulumi.all(peeringInstance.instances.map(i => i.selfLink)),
+        peering_instances_names: pulumi.all(peeringInstance.instances.map(i => i.name)),
+        peering_instances_zones: pulumi.all(peeringInstance.instances.map(i => i.zone)),
 
         // Confidential Space outputs
         confidential_space_project_id: confSpaceProjectId,
         confidential_space_project_number: confSpaceProjectNum,
         workload_identity_pool_id: wip.workloadIdentityPoolId,
         workload_pool_provider_id: attestationProvider.workloadIdentityPoolProviderId,
-        confidential_instances_self_links: pulumi.all(confInstance.instances.map(i =>
-            i.selfLink)),
-        confidential_instances_names: pulumi.all(confInstance.instances.map(i =>
-            i.name)),
-        confidential_instances_zones: pulumi.all(confInstance.instances.map(i =>
-            i.zone)),
+        confidential_instances_self_links: pulumi.all(confInstance.instances.map(i => i.selfLink)),
+        confidential_instances_names: pulumi.all(confInstance.instances.map(i => i.name)),
+        confidential_instances_zones: pulumi.all(confInstance.instances.map(i => i.zone)),
     };
 };

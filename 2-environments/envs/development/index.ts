@@ -34,7 +34,10 @@ export = async () => {
 
     return {
         env_folder: result.envFolder.name,
+        env_folder_id: result.envFolderId,
         env_kms_project_id: result.envKmsProjectId,
+        env_kms_project_number: result.envKmsProjectNumber,
         env_secrets_project_id: result.envSecretsProjectId,
+        assured_workload_id: result.assuredWorkloadId,
     };
 };
