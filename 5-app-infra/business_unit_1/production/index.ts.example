@@ -152,6 +152,8 @@ export = async () => {
         diskType: "pd-ssd",
         subnetwork: `projects/${config.get("shared_vpc_host_project") || ""}/regions/${region}/subnetworks/sb-p-svpc-${region}`,
         enableConfidentialVm: true,
+        minCpuPlatform: "AMD Rome",
+        confidentialInstanceType: "SEV",
         metadata: {
             "tee-image-reference": `${region}-docker.pkg.dev/fake-project/tf-runners/confidential_space_image:latest`,
         },
