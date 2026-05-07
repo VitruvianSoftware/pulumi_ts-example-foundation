@@ -32,7 +32,6 @@ import * as random from "@pulumi/random";
 import * as github from "@pulumi/github";
 import { BootstrapConfig } from "./config";
 import { GranularSAs } from "./sa";
-import { GitHubOIDC } from "@vitruviansoftware/foundation-cicd";
 import { CbPrivatePool } from "@vitruviansoftware/foundation-cb-private-pool";
 
 export interface CICDProjectOutputs {
@@ -179,29 +178,43 @@ export async function deployGitHubActionsWIF(
         proj: cfg.githubRepoProj || "",
     };
 
-    const saMappings: Record<string, { saName: pulumi.Output<string>; attribute: string }> = {};
+    const wifPool = new gcp.iam.WorkloadIdentityPool("foundation-wif-pool", {
+        workloadIdentityPoolId: "foundation-pool",
+        project: cicdProjectId,
+        description: "GitHub Actions WIF pool",
+    });
+
+    const wifProvider = new gcp.iam.WorkloadIdentityPoolProvider("foundation-gh-provider", {
+        workloadIdentityPoolId: wifPool.workloadIdentityPoolId,
+        workloadIdentityPoolProviderId: "foundation-gh-provider",
+        project: cicdProjectId,
+        attributeMapping: {
+            "google.subject": "assertion.sub",
+            "attribute.actor": "assertion.actor",
+            "attribute.repository": "assertion.repository",
+            "attribute.repository_owner": "assertion.repository_owner",
+        },
+        attributeCondition: attributeCondition,
+        oidc: {
+            issuerUri: "https://token.actions.githubusercontent.com",
+        },
+    });
+
     for (const [key, sa] of Object.entries(saOutputs.serviceAccounts)) {
         const repo = stageRepos[key] || "";
         const attr = (repo === "" || repo === "*")
             ? `attribute.repository/${cfg.githubOwner}`
             : `attribute.repository/${cfg.githubOwner}/${repo}`;
 
-        saMappings[key] = {
-            saName: sa.name,
-            attribute: attr,
-        };
+        new gcp.serviceaccount.IAMMember(`gh-oidc-binding-${key}`, {
+            serviceAccountId: sa.name,
+            role: "roles/iam.workloadIdentityUser",
+            member: pulumi.interpolate`principalSet://iam.googleapis.com/${wifPool.name}/${attr}`,
+        });
     }
 
-    const githubOidc = new GitHubOIDC("foundation-wif", {
-        projectId: cicdProjectId,
-        poolId: "foundation-pool",
-        providerId: "foundation-gh-provider",
-        attributeCondition: attributeCondition,
-        saMapping: saMappings,
-    });
-
-    wifPoolName = githubOidc.pool.name;
-    wifProviderName = githubOidc.provider.name;
+    wifPoolName = wifPool.name;
+    wifProviderName = wifProvider.name;
 
     // ====================================================================
     // GitHub Actions Secrets
@@ -227,7 +240,7 @@ export async function deployGitHubActionsWIF(
         new github.ActionsSecret(`gh-secret-${key}-wif-provider`, {
             repository: repo,
             secretName: "WIF_PROVIDER_NAME",
-            plaintextValue: githubOidc.provider.name,
+            plaintextValue: wifProvider.name,
         });
 
         // SERVICE_ACCOUNT_EMAIL
