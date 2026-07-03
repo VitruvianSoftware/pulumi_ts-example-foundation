@@ -346,6 +346,7 @@ export = async () => {
             forceDestroy: cfg.logExportStorageForceDestroy,
             versioning: cfg.logExportStorageVersioning,
             location: cfg.logExportStorageLocation,
+            retentionPolicy: cfg.logExportStorageRetentionPolicy,
         },
         pubsubOptions: {
             topicName: "tp-c-logging",
