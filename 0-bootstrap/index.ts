@@ -167,6 +167,12 @@ export = async () => {
         });
     }
 
+    new gcp.organizations.IAMMember(`org-billing-admins-admin`, {
+        orgId: cfg.orgId,
+        role: "roles/billing.admin",
+        member: `group:${cfg.groups.requiredGroups.groupBillingAdmins}`,
+    });
+
     /*************************************************
       Outputs — mirrors outputs.tf and outputs_cb.tf
     *************************************************/
