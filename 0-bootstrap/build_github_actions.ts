@@ -202,9 +202,10 @@ export async function deployGitHubActionsWIF(
 
     for (const [key, sa] of Object.entries(saOutputs.serviceAccounts)) {
         const repo = stageRepos[key] || "";
-        const attr = (repo === "" || repo === "*")
-            ? `attribute.repository/${cfg.githubOwner}`
-            : `attribute.repository/${cfg.githubOwner}/${repo}`;
+        const attr =
+            repo === "" || repo === "*"
+                ? `attribute.repository_owner/${cfg.githubOwner}`
+                : `attribute.repository/${cfg.githubOwner}/${repo}`;
 
         new gcp.serviceaccount.IAMMember(`gh-oidc-binding-${key}`, {
             serviceAccountId: sa.name,

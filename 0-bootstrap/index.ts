@@ -158,14 +158,14 @@ export = async () => {
             orgId: cfg.orgId,
             role: role,
             member: `group:${cfg.groups.requiredGroups.groupOrgAdmins}`,
-        });
+        }, { dependsOn: groupOutputs.dependsOn });
     }
 
     new gcp.organizations.IAMMember(`org-billing-admins-admin`, {
         orgId: cfg.orgId,
         role: "roles/billing.admin",
         member: `group:${cfg.groups.requiredGroups.groupBillingAdmins}`,
-    });
+    }, { dependsOn: groupOutputs.dependsOn });
 
     /*************************************************
       Outputs — mirrors outputs.tf and outputs_cb.tf
