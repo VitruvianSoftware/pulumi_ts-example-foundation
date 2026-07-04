@@ -8,18 +8,11 @@ for env in envs:
     with open(path, 'r') as f:
         content = f.read()
     
-    # Check if we need to add bootstrapRef
-    if 'bootstrapRef' not in content:
-        replace_str = '''const projectRef = new pulumi.StackReference(`projects-bu1-${env}`);
-    const bootstrapRef = new pulumi.StackReference("bootstrap");
-    const cloudbuildProjectId = bootstrapRef.getOutput("cloudbuild_project_id") as pulumi.Output<string>;'''
-        content = content.replace(f'const projectRef = new pulumi.StackReference("projects-bu1-{env}");', replace_str)
-
     # Check if we need to fix tee-image-reference
-    if 'fake-project' in content:
+    if 'pulumi.interpolate`${region}-docker.pkg.dev/${cloudbuildProjectId}/tf-runners/confidential_space_image:latest`,' in content:
         content = content.replace(
-            '"tee-image-reference": `${region}-docker.pkg.dev/fake-project/tf-runners/confidential_space_image:latest`,',
-            '"tee-image-reference": pulumi.interpolate`${region}-docker.pkg.dev/${cloudbuildProjectId}/tf-runners/confidential_space_image:latest`,'
+            'pulumi.interpolate`${region}-docker.pkg.dev/${cloudbuildProjectId}/tf-runners/confidential_space_image:latest`,',
+            'pulumi.interpolate`${region}-docker.pkg.dev/${cloudbuildProjectId}/tf-runners/confidential_space_image:latest` as any,'
         )
     
     with open(path, 'w') as f:
